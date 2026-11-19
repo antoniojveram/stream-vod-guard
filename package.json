@@ -1,7 +1,6 @@
 {
   "name": "stream-vod-guard",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
   "description": "Self-hosted live stream archiver for Twitch and YouTube with a web UI and copyright-mute audit.",
   "license": "MIT",
@@ -24,5 +23,17 @@
     "test:e2e": "E2E=1 node --test test/e2e.test.js",
     "audit:vod": "node src/cli.js audit-vod",
     "demo:capture": "bash scripts/demo-capture.sh"
-  }
+  },
+  "keywords": [
+    "twitch",
+    "youtube",
+    "vod",
+    "archiver",
+    "yt-dlp",
+    "streamlink",
+    "ffmpeg",
+    "docker",
+    "self-hosted",
+    "live-streaming"
+  ]
 }
