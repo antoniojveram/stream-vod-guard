@@ -158,6 +158,22 @@
         <button class="btn sm" id="folder-create" type="button">Create folder</button>
       </div>
 
+      <h3 class="sub">Storage</h3>
+      <div class="form-grid">
+        <label class="check"><input type="checkbox" id="compress-enabled" /> Compress finished recordings to HEVC</label>
+        <label>Compression quality
+          <select id="compress-quality">
+            <option value="high">High — near-transparent</option>
+            <option value="balanced">Balanced — recommended</option>
+            <option value="small">Small — maximum savings</option>
+          </select>
+        </label>
+        <label>Keep YouTube backup for (days)
+          <input id="backup-retention" type="number" min="0" max="365" step="1" />
+        </label>
+      </div>
+      <p class="settings-note" id="storage-note"></p>
+
       <h3 class="sub">Appearance</h3>
       <div class="form-grid">
         <label>Dashboard name

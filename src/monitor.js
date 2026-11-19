@@ -14,6 +14,7 @@ import {
   retryPendingArchives,
 } from './postprocess.js';
 import { validateDestination } from './settings.js';
+import { enqueueCompression } from './storage.js';
 import { findVodForStream, getStream, getVodMutes } from './twitch.js';
 import { detectLiveFromRss, getLiveVideo, resolveYouTubeChannelId } from './youtube.js';
 import {
@@ -260,6 +261,7 @@ export class Archiver {
         if (result.ok) {
           void notifyFinal(session, summary);
           this.scheduleVodWatch(session);
+          if (session.status === 'done') enqueueCompression(session);
         } else {
           void notifyError(`Error finalizing ${session.title}`, result.error);
         }
@@ -423,7 +425,9 @@ export class Archiver {
       this.lastArchiveRetryAt = now;
       if (!this.retryingArchives) {
         this.retryingArchives = true;
-        void retryPendingArchives(this.store).finally(() => {
+        void retryPendingArchives(this.store, {
+          onArchived: (session) => enqueueCompression(session),
+        }).finally(() => {
           this.retryingArchives = false;
         });
       }
@@ -781,6 +785,9 @@ export class Monitors {
       recordingsDir: config.recordingsDir,
       archiveDisplayPath: config.archiveDisplayPath,
       archiveMetaDir: config.archiveMetaDir,
+      compressEnabled: config.storage.compressEnabled,
+      compressQuality: config.storage.compressQuality,
+      backupRetentionDays: config.storage.backupRetentionDays,
     };
 
     let resolvedYoutube = null;
@@ -858,6 +865,19 @@ export class Monitors {
         config.archiveDisplayPath = settings.destination.display;
       }
 
+      if (settings.storage) {
+        if (settings.storage.compressEnabled !== undefined) {
+          config.storage.compressEnabled = settings.storage.compressEnabled !== false;
+        }
+        if (['high', 'balanced', 'small'].includes(settings.storage.compressQuality)) {
+          config.storage.compressQuality = settings.storage.compressQuality;
+        }
+        const days = Number.parseInt(settings.storage.backupRetentionDays, 10);
+        if (Number.isFinite(days)) {
+          config.storage.backupRetentionDays = Math.max(0, Math.min(365, days));
+        }
+      }
+
       await this.startLoops();
       this.archiver.store.addEvent({
         event: 'settings-updated',
@@ -887,6 +907,9 @@ export class Monitors {
       config.recordingsDir = snapshot.recordingsDir;
       config.archiveDisplayPath = snapshot.archiveDisplayPath;
       config.archiveMetaDir = snapshot.archiveMetaDir;
+      config.storage.compressEnabled = snapshot.compressEnabled;
+      config.storage.compressQuality = snapshot.compressQuality;
+      config.storage.backupRetentionDays = snapshot.backupRetentionDays;
       await this.startLoops().catch(() => {});
       throw error;
     }

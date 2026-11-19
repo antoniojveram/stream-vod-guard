@@ -327,7 +327,8 @@ tr.outside td:last-child { color: var(--dim); }
 .form-grid input:not([type]) {
   width: 100%;
 }
-.form-grid input {
+.form-grid input,
+.form-grid select {
   appearance: none;
   border: 1px solid var(--line);
   background: #0b0e15;
@@ -338,7 +339,10 @@ tr.outside td:last-child { color: var(--dim); }
   font-size: 13px;
   outline: none;
 }
-.form-grid input:focus { border-color: rgba(139,92,246,0.7); box-shadow: 0 0 0 3px rgba(139,92,246,0.12); }
+.form-grid select { cursor: pointer; }
+.form-grid input:focus,
+.form-grid select:focus { border-color: rgba(139,92,246,0.7); box-shadow: 0 0 0 3px rgba(139,92,246,0.12); }
+.detail-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 18px; }
 .form-grid input[type="checkbox"] {
   appearance: auto;
   -webkit-appearance: checkbox;

@@ -36,6 +36,19 @@ docker compose run --rm stream-vod-guard \
 
 or open a recording in the dashboard and check **Resolution**.
 
+## Compression is opt-in
+
+The live capture and the final remux are lossless with respect to the platform
+feed. Optional HEVC compression (`COMPRESS_ENABLED=true`) is a **separate,
+lossy archival step** that runs after the stream ends: it preserves the
+resolution and FPS but not the exact bits. The original file is kept until the
+HEVC copy has been probed, decoded and verified, and it is only replaced if it
+is at least 10% smaller. If bit-exact preservation is a requirement, leave
+compression disabled.
+
+See [storage.md](storage.md) for measured savings, hardware requirements and
+compatibility notes.
+
 ## Caveats
 
 - No tool can create quality the platform does not serve. If the streamer broadcasts at 1080p60, the archive is 1080p60.

@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-11-19
+
+### Added
+
+- Optional **HEVC compression** of finished recordings with Intel/AMD VAAPI
+  hardware encoding (x265 CPU fallback). The original is kept until the new file
+  is probed, decoded and verified smaller.
+- **YouTube backup retention**: delete the secondary copy after N days when a
+  verified Twitch recording covers at least 95% of it.
+- Storage section in the dashboard settings, per-recording **Compress to HEVC**
+  action, compression progress/savings badges and activity events.
+- `docker-compose.vaapi.yml` for `/dev/dri` passthrough and `RENDER_GID`.
+- API endpoints `GET /api/storage`, `POST /api/storage/prune` and
+  `POST /api/sessions/:id/compress`.
+- Compression and retention tests.
+
+### Changed
+
+- The Docker image now includes the Intel and Mesa VAAPI drivers.
+- Documentation for quality, storage, configuration and troubleshooting.
+
 ## [1.0.1] — 2026-11-19
 
 ### Changed
@@ -27,5 +48,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - Disk guards, retention, SHA-256, range downloads and optional dashboard token.
 - Docker Compose, multi-arch GHCR release, CI and case study documentation.
 
+[1.1.0]: https://github.com/antoniojveram/stream-vod-guard/releases/tag/v1.1.0
 [1.0.1]: https://github.com/antoniojveram/stream-vod-guard/releases/tag/v1.0.1
 [1.0.0]: https://github.com/antoniojveram/stream-vod-guard/releases/tag/v1.0.0

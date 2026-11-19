@@ -15,6 +15,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
+      intel-media-va-driver \
+      mesa-va-drivers \
       python3 \
       python3-venv \
       ca-certificates \

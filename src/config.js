@@ -141,6 +141,26 @@ export const config = {
     warnFreeArchiveGb: float(process.env.WARN_FREE_ARCHIVE_GB, 100),
   },
 
+  storage: {
+    // Re-encode finished MKVs to HEVC to cut archive size. The original is kept
+    // until the compressed file has been probed and decoded successfully.
+    compressEnabled: bool(process.env.COMPRESS_ENABLED, false),
+    // high (near-transparent) | balanced | small (maximum savings).
+    compressQuality: process.env.COMPRESS_QUALITY || 'balanced',
+    // auto = VAAPI when available, otherwise x265 (CPU, much slower).
+    // vaapi = require the iGPU; x265 = force software; none = disable encoding.
+    compressEncoder: process.env.COMPRESS_ENCODER || 'auto',
+    // Skip compression when it would save less than this percentage.
+    compressMinSavingsPercent: float(process.env.COMPRESS_MIN_SAVINGS, 10),
+    // On startup, queue finished recordings from the last N days. 0 = none.
+    compressBackfillDays: int(process.env.COMPRESS_BACKFILL_DAYS, 0),
+    // VAAPI render node (Intel/AMD iGPU). Mount it with docker-compose.vaapi.yml.
+    vaapiDevice: process.env.VAAPI_DEVICE || '/dev/dri/renderD128',
+    // Delete the YouTube backup N days after a verified Twitch copy covers it.
+    // 0 = keep both forever.
+    backupRetentionDays: int(process.env.BACKUP_RETENTION_DAYS, 0),
+  },
+
   // 0 = keep forever. Otherwise remove finalized recordings older than N days.
   retentionDays: int(process.env.RETENTION_DAYS, 0),
 
@@ -209,6 +229,12 @@ export function publicConfig() {
       videosHostRoot: config.videosHostRoot,
     },
     disk: config.disk,
+    storage: {
+      compressEnabled: config.storage.compressEnabled,
+      compressQuality: config.storage.compressQuality,
+      compressBackfillDays: config.storage.compressBackfillDays,
+      backupRetentionDays: config.storage.backupRetentionDays,
+    },
     retentionDays: config.retentionDays,
   };
 }

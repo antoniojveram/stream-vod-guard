@@ -1,0 +1,14 @@
+# Optional override for Intel/AMD iGPU hardware HEVC compression.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
+#
+# The container runs as the unprivileged `node` user, which needs access to the
+# host render group. Find its GID with `getent group render` (usually 992) and
+# set RENDER_GID in .env if it differs.
+services:
+  stream-vod-guard:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID:-992}"

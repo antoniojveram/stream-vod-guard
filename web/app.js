@@ -131,6 +131,35 @@ function auditBadge(session) {
   return '';
 }
 
+function compressionBadge(session) {
+  const c = session.compression;
+  if (!c) return '';
+  if (c.status === 'running') return `<span class="badge pending">HEVC ${c.progress ?? 0}%</span>`;
+  if (c.status === 'queued') return '<span class="badge pending">HEVC queued</span>';
+  if (c.status === 'done') return `<span class="badge done">HEVC −${Math.round(c.savedPercent || 0)}%</span>`;
+  if (c.status === 'failed') return '<span class="badge fail">HEVC failed</span>';
+  return '';
+}
+
+function compressionText(session) {
+  const c = session.compression;
+  if (!c) return '—';
+  if (c.status === 'done') {
+    return `HEVC · ${c.savedPercent || 0}% smaller (${fmtBytes(c.savedBytes || 0)} saved)`;
+  }
+  if (c.status === 'running') return `HEVC · ${c.progress ?? 0}%${c.speed ? ` · ${esc(c.speed)}` : ''}`;
+  if (c.status === 'queued') return 'HEVC queued';
+  if (c.status === 'skipped') return `Skipped: ${esc(c.reason || '—')}`;
+  if (c.status === 'failed') return `Failed: ${esc(c.error || '—')}`;
+  return esc(c.status || '—');
+}
+
+function canCompress(session) {
+  const codec = session.final?.quality?.videoCodec;
+  if (!session.final?.file || codec === 'hevc' || codec === 'av1') return false;
+  return !['queued', 'running', 'done'].includes(session.compression?.status);
+}
+
 function platformBadge(platform, small = false) {
   if (platform === 'twitch') return `<span class="platform twitch${small ? '-sm' : ''}">Twitch</span>`;
   return `<span class="platform youtube${small ? '-sm' : ''}">YouTube</span>`;
@@ -293,7 +322,7 @@ function renderRecent() {
           <span>Coverage <b>${coverage}</b></span>
         </div>
         <div class="session-actions">
-          ${statusBadge(s)} ${auditBadge(s)}
+          ${statusBadge(s)} ${auditBadge(s)} ${compressionBadge(s)}
           ${s.downloadUrl ? `<a class="btn primary sm" href="${downloadHref(s.downloadUrl)}">Download</a>` : ''}
           <button class="btn sm" data-detail="${esc(s.id)}">Details</button>
         </div>
@@ -320,6 +349,20 @@ function renderEvents() {
 function wireActions(root) {
   root.querySelectorAll('[data-detail]').forEach((btn) => {
     btn.addEventListener('click', () => openDetail(btn.dataset.detail));
+  });
+  root.querySelectorAll('[data-compress]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        await api(`/api/sessions/${encodeURIComponent(btn.dataset.compress)}/compress`, { method: 'POST' });
+        $('detail-dialog').close();
+        await refresh();
+      } catch (error) {
+        alert(`Could not queue compression: ${error.message}`);
+      } finally {
+        btn.disabled = false;
+      }
+    });
   });
   root.querySelectorAll('[data-finalize]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -403,6 +446,8 @@ async function openDetail(id) {
           ? `${s.final.quality.width}x${s.final.quality.height}${s.final.quality.fps ? ` @ ${fmtFps(s.final.quality.fps)} fps` : ''}`
           : '—')}
         ${kv('Size', s.final?.size ? fmtBytes(s.final.size) : '—')}
+        ${kv('Compression', compressionText(s), true)}
+        ${s.backupPruned ? kv('Backup pruned', `${fmtDate(s.backupPruned.at)} · ${fmtBytes(s.backupPruned.size || 0)} freed`, true) : ''}
         ${kv('Coverage', s.coverage ? `${Math.round((s.coverage.ratio || 0) * 100)}% (${fmtDuration(s.coverage.finalSeconds)} de ${fmtDuration(s.coverage.expectedSeconds)})` : '—')}
         ${kv('Restarts', String(s.restarts || 0))}
         ${kv('Final file', esc(s.final?.displayFile || s.final?.file || '—'), true)}
@@ -410,6 +455,12 @@ async function openDetail(id) {
         ${s.twitchVod ? kv('Twitch VOD', `${esc(s.twitchVod.id)} · ${s.twitchVod.mutedSegments} mutes / ${fmtDuration(s.twitchVod.mutedSeconds)}`, true) : ''}
         ${s.twitchVod?.secondsAfterStreamEnd != null ? kv('Mutes applied', `≈ ${fmtDuration(s.twitchVod.secondsAfterStreamEnd)} after stream end`, true) : ''}
       </div>
+
+      ${canCompress(s) ? `
+        <div class="detail-actions">
+          <button class="btn primary" data-compress="${esc(s.id)}">Compress to HEVC</button>
+          <span class="subtle">Runs in the background; the original is replaced only after verification.</span>
+        </div>` : ''}
 
       ${audit && audit.segments?.length ? `
         <h3 class="sub">Twitch mute audit</h3>
@@ -432,6 +483,7 @@ async function openDetail(id) {
           <tbody>${silences}</tbody>
         </table>` : ''}
     `;
+    wireActions($('detail-body'));
   } catch (error) {
     $('detail-body').innerHTML = `<p class="empty">Could not load: ${esc(error.message)}</p>`;
   }
@@ -480,6 +532,19 @@ async function openSettings() {
     $('app-name-input').value = settings.appName || '';
     $('app-mark-input').value = settings.appMark || '';
     $('filename-template').value = settings.filenameTemplate || '';
+    $('compress-enabled').checked = Boolean(settings.storage?.compressEnabled);
+    $('compress-quality').value = settings.storage?.compressQuality || 'balanced';
+    $('backup-retention').value = settings.storage?.backupRetentionDays ?? 0;
+    const encoder = settings.storage?.encoder;
+    if (encoder?.kind === 'vaapi') {
+      $('storage-note').textContent = `Hardware encoder ready: ${encoder.name}. Finished files are compressed after the stream ends; the original is kept until the new file is verified.`;
+    } else if (encoder?.kind === 'x265') {
+      $('storage-note').textContent = 'No GPU encoder detected. Compression will use the CPU and can take several hours per long recording.';
+    } else if (encoder?.kind === 'none') {
+      $('storage-note').textContent = `Compression is unavailable: ${encoder.reason || 'no encoder available'}.`;
+    } else {
+      $('storage-note').textContent = 'Checking the compression encoder…';
+    }
     const active = settings.activeSessions || 0;
     $('settings-warning').textContent = active
       ? `${active} active recording(s). Changing a channel will stop and finalize that channel; the folder only affects new recordings.`
@@ -535,6 +600,11 @@ async function saveSettings() {
         label: $('yt-label').value.trim(),
       },
       destination: { dir: state.folder.path },
+      storage: {
+        compressEnabled: $('compress-enabled').checked,
+        compressQuality: $('compress-quality').value,
+        backupRetentionDays: Number.parseInt($('backup-retention').value, 10) || 0,
+      },
     };
     const settings = await api('/api/settings', {
       method: 'POST',
@@ -543,7 +613,7 @@ async function saveSettings() {
     });
     state.settings = settings;
     $('settings-warning').className = 'settings-note ok';
-    $('settings-warning').textContent = 'Saved. Channels, destination and appearance updated.';
+    $('settings-warning').textContent = 'Saved. Channels, destination, storage and appearance updated.';
     await refresh();
     setTimeout(() => $('settings-dialog').close(), 900);
   } catch (error) {

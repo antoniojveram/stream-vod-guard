@@ -35,6 +35,7 @@ En el caso que originó el proyecto, el VOD de Twitch tenía **12 tramos × 180 
 - Explorador de carpetas con creación de subcarpetas.
 - Captura dual con `streamlink` y `yt-dlp --live-from-start`.
 - Watchdog, trozos independientes, recuperación tras reinicio del contenedor.
+- Optimizador de almacenamiento: compresión HEVC con la iGPU y limpieza automática de la copia de YouTube.
 - MKV final en tu carpeta; trozos temporales en disco local.
 - Auditoría de mutes de Twitch con PASS/FAIL por tramo.
 - CLI para descargas puntuales, estado, VODs y pruebas.
@@ -43,7 +44,7 @@ En el caso que originó el proyecto, el VOD de Twitch tenía **12 tramos × 180 
 
 ## Inicio rápido
 
-Requisitos: Docker + Compose v2, ~2 GB de RAM y espacio para las grabaciones (1080p60 ≈ 3,5 GB/h por plataforma).
+Requisitos: Docker + Compose v2, ~2 GB de RAM y espacio para las grabaciones (1080p60 ≈ 3,2 GB/h por plataforma; con HEVC ≈ 1,3–1,9 GB/h).
 
 ```bash
 git clone https://github.com/antoniojveram/stream-vod-guard.git
@@ -150,16 +151,43 @@ data/
 | `DATA_HOST_PATH` | `./data` | Estado, logs y trozos |
 | `FILENAME_TEMPLATE` | `{channel} - {date} - {title} [{platform}-{id}]` | Nombre final |
 | `TWITCH_QUALITY` | `best` | Calidad de Twitch |
-| `YOUTUBE_MAX_HEIGHT` | `1080` | Altura máxima de YouTube |
+| `YOUTUBE_MAX_HEIGHT` | `0` | `0` = máxima calidad; o limita la altura |
 | `YOUTUBE_LIVE_FROM_START` | `true` | Recupera desde el inicio del DVR |
 | `STALL_TIMEOUT_MS` | `240000` | Umbral del watchdog |
 | `MIN_FREE_GB` / `MIN_FREE_ARCHIVE_GB` | `25` / `30` | Protección de disco |
 | `CHECKSUM` / `KEEP_RAW` | `true` / `false` | SHA-256 / conservar trozos |
+| `COMPRESS_ENABLED` | `false` | Recomprime los MKV terminados a HEVC |
+| `COMPRESS_QUALITY` | `balanced` | `high`, `balanced` o `small` |
+| `BACKUP_RETENTION_DAYS` | `0` | Borra la copia de YouTube a los N días; 0 = conservar |
 | `VOD_AUDIT_ENABLED` | `true` | Auditoría de mutes |
 | `RETENTION_DAYS` | `0` | 0 = conservar siempre |
 | `DASHBOARD_TOKEN` | vacío | Protege el panel |
 
 Referencia completa: [docs/configuration.md](docs/configuration.md).
+
+### Optimización de almacenamiento
+
+Un directo de 10 h a 1080p60 ocupa unos **32 GB**. Hay dos palancas opcionales
+que no bajan la calidad de la captura en vivo:
+
+- **Compresión HEVC** (`COMPRESS_ENABLED=true`): al terminar el directo, el MKV
+  se recomprime a HEVC con la iGPU Intel/AMD. Ahorro típico del **40–60 %** con
+  calidad `balanced`; en un Intel N100 tarda unas **4–6 h por cada 10 h** de
+  directo. El original se conserva hasta verificar el nuevo archivo.
+- **Retención de la copia de YouTube** (`BACKUP_RETENTION_DAYS=7`): borra la
+  copia de YouTube cuando la de Twitch la cubre al menos al 95 %. La de Twitch
+  nunca se borra con esta política. `0` conserva ambas para siempre.
+
+Para habilitar la iGPU en un host con `/dev/dri`:
+
+```bash
+getent group render                 # normalmente 992
+# pon RENDER_GID=992 en .env
+docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
+```
+
+El panel muestra el codificador detectado y permite activar ambas funciones en
+**⚙ Settings → Storage**. Guía completa: [docs/storage.md](docs/storage.md).
 
 ## Varios canales
 

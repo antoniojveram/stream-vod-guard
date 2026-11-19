@@ -46,6 +46,11 @@ export function settingsFromConfig() {
       root: config.videosRoot,
       hostRoot: config.videosHostRoot,
     },
+    storage: {
+      compressEnabled: config.storage.compressEnabled,
+      compressQuality: config.storage.compressQuality,
+      backupRetentionDays: config.storage.backupRetentionDays,
+    },
   };
 }
 
@@ -89,6 +94,18 @@ export function applySettingsToConfig(settings) {
     config.recordingsDir = dir;
     config.archiveDisplayPath = settings.destination.display || displayPathFor(dir);
     config.archiveMetaDir = path.join(dir, '.stream-vod-guard');
+  }
+  if (settings.storage && typeof settings.storage === 'object') {
+    if (settings.storage.compressEnabled !== undefined) {
+      config.storage.compressEnabled = settings.storage.compressEnabled !== false;
+    }
+    if (['high', 'balanced', 'small'].includes(settings.storage.compressQuality)) {
+      config.storage.compressQuality = settings.storage.compressQuality;
+    }
+    const days = Number.parseInt(settings.storage.backupRetentionDays, 10);
+    if (Number.isFinite(days)) {
+      config.storage.backupRetentionDays = Math.max(0, Math.min(365, days));
+    }
   }
   return true;
 }

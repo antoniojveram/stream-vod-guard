@@ -41,6 +41,7 @@ Stream VOD Guard therefore captures **both live feeds in parallel**, so one plat
 - **Dual capture**: Twitch via `streamlink`, YouTube via `yt-dlp --live-from-start`.
 - **Crash resilient**: rolling parts, watchdog restarts, container-restart recovery.
 - **Storage-safe**: raw chunks on local disk, final MKV copied to your destination; retries if the destination is unavailable.
+- **Storage optimizer**: optional HEVC compression with the Intel/AMD iGPU and automatic pruning of the YouTube backup.
 - **Mute audit**: compares its own file with Twitch's `muted_segments` and reports PASS/FAIL per segment.
 - **Single container**: no database, no external services. FFmpeg, Streamlink and yt-dlp included.
 - **CLI**: one-off captures, live status, VOD mute inspection, file probing.
@@ -216,6 +217,9 @@ Everything is configurable through `.env` and the dashboard. Main variables:
 | `OFFLINE_GRACE_MS` | `90000` | Wait before finalizing |
 | `MIN_FREE_GB` / `MIN_FREE_ARCHIVE_GB` | `25` / `30` | Disk guards |
 | `CHECKSUM` / `KEEP_RAW` | `true` / `false` | SHA-256 / keep parts |
+| `COMPRESS_ENABLED` | `false` | Re-encode finished MKVs to HEVC |
+| `COMPRESS_QUALITY` | `balanced` | `high`, `balanced` or `small` |
+| `BACKUP_RETENTION_DAYS` | `0` | Delete the YouTube backup after N days; 0 = keep |
 | `VOD_AUDIT_ENABLED` | `true` | Twitch mute audit |
 | `RETENTION_DAYS` | `0` | 0 = keep forever |
 | `DASHBOARD_TOKEN` | empty | Protect the dashboard |
@@ -230,6 +234,30 @@ The defaults are set to capture the best rendition each platform offers:
 The final MKV is a **remux** (`-c copy`); there is no re-encode. The dashboard detail shows the real resolution and FPS of the finished file. Set `YOUTUBE_MAX_HEIGHT=1080` (or `720`) only if you want to trade quality for disk space.
 
 Full reference: [docs/configuration.md](docs/configuration.md) · [quality guarantees](docs/quality.md).
+
+### Storage optimization
+
+A 10-hour 1080p60 stream is about **32 GB**. Two optional mechanisms reduce the
+archive without lowering the live capture quality:
+
+- **HEVC compression** (`COMPRESS_ENABLED=true`): after the stream ends, the MKV
+  is re-encoded to HEVC with the Intel/AMD iGPU. Expect **40–60% smaller files**
+  at `balanced` quality and roughly **4–6 hours per 10-hour stream** on an Intel
+  N100. The original is kept until the new file is probed, decoded and verified.
+- **YouTube backup retention** (`BACKUP_RETENTION_DAYS=7`): deletes the YouTube
+  copy after a verified Twitch recording covers at least 95% of it. The Twitch
+  file is never deleted by this policy. `0` keeps both forever.
+
+Enable the iGPU passthrough on a host with `/dev/dri`:
+
+```bash
+getent group render                 # usually 992
+# set RENDER_GID=992 in .env
+docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
+```
+
+The dashboard shows the detected encoder and lets you toggle both features in
+**⚙ Settings → Storage**. Full guide: [docs/storage.md](docs/storage.md).
 
 ### Several channels
 
@@ -247,7 +275,7 @@ The dashboard folder picker can share the same parent mount across instances.
 
 - **Keep the host awake** and Docker enabled at boot (`restart: unless-stopped`).
 - **Localhost only by default.** Put a reverse proxy with authentication in front if you expose it. `DASHBOARD_TOKEN` adds a simple bearer/query token.
-- **Disk sizing.** 1080p60 ≈ 3.5 GB/h per platform. Record both ≈ 7 GB/h. The system warns and stops before filling local disk.
+- **Disk sizing.** 1080p60 ≈ 3.2 GB/h per platform. Record both ≈ 5–6 GB/h. With HEVC compression the archive drops to ≈ 1.3–1.9 GB/h. The system warns and stops before filling local disk.
 - **Twitch ads.** `TWITCH_DISABLE_ADS=true` filters ad segments (leaving small gaps). The YouTube copy covers those gaps; both files are kept.
 - **YouTube members-only streams** need cookies: set `YT_COOKIES_FILE` to a Netscape-format cookies file.
 - **Keep yt-dlp current.** Rebuild the image periodically (`docker compose build --pull`); YouTube changes often.
