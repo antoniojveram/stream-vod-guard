@@ -18,7 +18,8 @@ Stream VOD Guard is a personal, self-hosted tool. It is not a multi-tenant servi
 
 - The settings API accepts a destination only inside `VIDEOS_ROOT` (`/videos` by default).
 - `path.resolve` plus a prefix check blocks `..` traversal.
-- Symlinked directories are skipped by the folder browser.
+- Symlinked directories are skipped, so the browser cannot follow them outside the root.
+- The API is intended for a trusted, local operator; do not expose it to untrusted users.
 - Downloads are served only from the mounted videos root; hidden metadata directories are blocked.
 
 ## Container hardening

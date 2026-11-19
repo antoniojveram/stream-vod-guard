@@ -47,7 +47,7 @@ RECORDINGS_DIR=/videos/recordings
 ARCHIVE_DISPLAY_PATH=/mnt/nas/videos/recordings
 ```
 
-The API validates that every destination is inside `VIDEOS_ROOT` (path traversal and symlink escapes are rejected).
+The API validates that every destination is inside `VIDEOS_ROOT` (path traversal is rejected; symlinked directories are skipped by the folder browser).
 
 ## Filenames
 
