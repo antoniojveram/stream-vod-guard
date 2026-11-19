@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ee6a8.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 
-[English](README.md) · [Español](README.es.md) · [Documentación](docs/) · [Caso de estudio](docs/case-study/gta-vi.md)
+[English](README.md) · [Español](README.es.md) · [Documentación](docs/) · [Caso de estudio](docs/case-study/gta-vi.es.md)
 
 </div>
 
@@ -26,7 +26,7 @@ Graba a la vez el directo de **cualquier canal de Twitch y YouTube**, antes de q
 - YouTube **no aplica el claim al archivo hasta que el directo termina**: el directo se emite completo.
 - La única copia con el audio original es la **señal en vivo**.
 
-En el caso que originó el proyecto, el VOD de Twitch tenía **12 tramos × 180 s = 36 minutos (11,51 %)** de silencio digital. Los datos están en [docs/case-study/gta-vi.md](docs/case-study/gta-vi.md).
+En el caso que originó el proyecto, el VOD de Twitch tenía **12 tramos × 180 s = 36 minutos (11,51 %)** de silencio digital. Los datos están en [docs/case-study/gta-vi.es.md](docs/case-study/gta-vi.es.md).
 
 ## Características
 
