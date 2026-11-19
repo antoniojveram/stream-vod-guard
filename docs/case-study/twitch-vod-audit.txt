@@ -1,0 +1,33 @@
+
+VOD 2932866051 · Yo estuve aquí ❤️ - Grand Theft Auto VI #1
+Duración: 5h 12m 40s · silenciado por Twitch: 12 tramos, 36m 00s (11.51%)
+
+| # | Offset | Duración | Rango |
+|---|--------|----------|-------|
+| 1 | 01:27:00 | 180s | 01:27:00 → 01:30:00 |
+| 2 | 02:15:00 | 180s | 02:15:00 → 02:18:00 |
+| 3 | 02:57:00 | 180s | 02:57:00 → 03:00:00 |
+| 4 | 04:00:00 | 180s | 04:00:00 → 04:03:00 |
+| 5 | 04:06:00 | 180s | 04:06:00 → 04:09:00 |
+| 6 | 04:18:00 | 180s | 04:18:00 → 04:21:00 |
+| 7 | 04:21:00 | 180s | 04:21:00 → 04:24:00 |
+| 8 | 04:42:00 | 180s | 04:42:00 → 04:45:00 |
+| 9 | 04:45:00 | 180s | 04:45:00 → 04:48:00 |
+| 10 | 04:57:00 | 180s | 04:57:00 → 05:00:00 |
+| 11 | 05:03:00 | 180s | 05:03:00 → 05:06:00 |
+| 12 | 05:06:00 | 180s | 05:06:00 → 05:09:00 |
+
+Audio analizado: twitch_vod_2932866051.mp4 · 5h 13m 44s
+
+| Muestra | Offset VOD | media | pico | Interpretación |
+|---------|-----------|-------|------|----------------|
+| Tramo muteado #1 | 01:28:00 | -91 dB | -91 dB | SILENCIO digital |
+| Tramo muteado #2 | 02:16:00 | -91 dB | -91 dB | SILENCIO digital |
+| Tramo muteado #3 | 02:58:00 | -91 dB | -91 dB | SILENCIO digital |
+| Tramo muteado #4 | 04:01:00 | -91 dB | -91 dB | SILENCIO digital |
+| Tramo muteado #5 | 04:07:00 | -91 dB | -91 dB | SILENCIO digital |
+| Tramo muteado #6 | 04:19:00 | -91 dB | -91 dB | SILENCIO digital |
+| Control (sin mute) | 01:22:00 | -31.1 dB | -10.8 dB | audio normal |
+
+Resumen: 6 tramos muteados sin audio · 0 con audio · control -31.1 dB
+Los tramos con "sin muestras" o silencio digital confirman que el VOD no contiene el audio original.

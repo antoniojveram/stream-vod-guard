@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+data/
+videos/
+downloads/
+node_modules/
+*.log
+*.mkv
+*.ts
+*.mp4
+.DS_Store
+coverage/

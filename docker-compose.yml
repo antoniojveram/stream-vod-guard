@@ -1,0 +1,44 @@
+services:
+  stream-vod-guard:
+    image: ghcr.io/antoniojveram/stream-vod-guard:latest
+    build:
+      context: .
+    container_name: ${CONTAINER_NAME:-stream-vod-guard}
+    restart: unless-stopped
+    env_file:
+      - ${APP_ENV_FILE:-.env}
+    environment:
+      DATA_DIR: /data
+      RECORDINGS_DIR: ${RECORDINGS_DIR:-/videos/recordings}
+      VIDEOS_ROOT: /videos
+      VIDEOS_HOST_ROOT: ${VIDEOS_HOST_ROOT:-./videos}
+      HOST: 0.0.0.0
+      PORT: "8787"
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      # Local only by default. Use an SSH tunnel or a reverse proxy with auth
+      # if you need remote access. Change DASHBOARD_BIND only if you know what
+      # you are doing.
+      - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8787}:8787"
+    volumes:
+      # State, logs and temporary capture chunks (fast local disk).
+      - ${DATA_HOST_PATH:-./data}:/data
+      # Parent folder whose subfolders can be selected from the dashboard.
+      - ${VIDEOS_HOST_PATH:-./videos}:/videos
+    shm_size: 256m
+    stop_grace_period: 45s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 25s

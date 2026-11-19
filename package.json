@@ -1,0 +1,28 @@
+{
+  "name": "stream-vod-guard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted live stream archiver for Twitch and YouTube with a web UI and copyright-mute audit.",
+  "license": "MIT",
+  "author": "antoniojveram",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antoniojveram/stream-vod-guard.git"
+  },
+  "homepage": "https://github.com/antoniojveram/stream-vod-guard#readme",
+  "bugs": {
+    "url": "https://github.com/antoniojveram/stream-vod-guard/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/",
+    "test:unit": "node --test test/unit.test.js",
+    "test:e2e": "E2E=1 node --test test/e2e.test.js",
+    "audit:vod": "node src/cli.js audit-vod",
+    "demo:capture": "bash scripts/demo-capture.sh"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "id": "2932866051",
+  "title": "Yo estuve aquí ❤️ - Grand Theft Auto VI #1",
+  "createdAt": "2026-11-18T23:15:54Z",
+  "lengthSeconds": 18760,
+  "length": "5h 12m 40s",
+  "mutedSegments": [
+    {
+      "offset": 5220,
+      "duration": 180
+    },
+    {
+      "offset": 8100,
+      "duration": 180
+    },
+    {
+      "offset": 10620,
+      "duration": 180
+    },
+    {
+      "offset": 14400,
+      "duration": 180
+    },
+    {
+      "offset": 14760,
+      "duration": 180
+    },
+    {
+      "offset": 15480,
+      "duration": 180
+    },
+    {
+      "offset": 15660,
+      "duration": 180
+    },
+    {
+      "offset": 16920,
+      "duration": 180
+    },
+    {
+      "offset": 17100,
+      "duration": 180
+    },
+    {
+      "offset": 17820,
+      "duration": 180
+    },
+    {
+      "offset": 18180,
+      "duration": 180
+    },
+    {
+      "offset": 18360,
+      "duration": 180
+    }
+  ],
+  "summary": {
+    "count": 12,
+    "totalSeconds": 2160,
+    "total": "36m 00s",
+    "percent": 11.51
+  }
+}

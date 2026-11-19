@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="Self-hosted live stream archiver for Twitch and YouTube with audio-preservation audit." />
+  <title>Stream VOD Guard</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" id="app-mark">SV</div>
+      <div>
+        <h1 id="app-name">Stream VOD Guard</h1>
+        <p id="app-subtitle">Watching channels live</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn ghost" id="settings-open" title="Channels and destination folder">⚙ Settings</button>
+      <span class="pill" id="uptime">—</span>
+      <span class="pill muted" id="last-refresh">updating…</span>
+      <span class="conn" id="conn" title="Connection status"></span>
+    </div>
+  </header>
+
+  <main>
+    <section class="banner">
+      <strong>Why this works:</strong> Twitch and YouTube mute or delete the VOD
+      <em>after</em> the stream ends; the live signal is intact. We record both platforms
+      at the same time and verify, segment by segment, that our copy has audio exactly
+      where Twitch later applies its mute.
+    </section>
+
+    <section class="grid cards" id="monitor-cards">
+      <article class="card monitor" id="twitch-card">
+        <div class="card-head">
+          <span class="platform twitch">Twitch</span>
+          <span class="status-dot" data-status="starting"></span>
+        </div>
+        <h2 id="twitch-title">Connecting…</h2>
+        <p class="subtle" id="twitch-sub">—</p>
+        <dl class="metrics">
+          <div><dt>State</dt><dd id="twitch-status">—</dd></div>
+          <div><dt>Viewers</dt><dd id="twitch-viewers">—</dd></div>
+          <div><dt>Last poll</dt><dd id="twitch-poll">—</dd></div>
+        </dl>
+        <p class="error" id="twitch-error"></p>
+      </article>
+
+      <article class="card monitor" id="youtube-card">
+        <div class="card-head">
+          <span class="platform youtube">YouTube</span>
+          <span class="status-dot" data-status="starting"></span>
+        </div>
+        <h2 id="youtube-title">Connecting…</h2>
+        <p class="subtle" id="youtube-sub">—</p>
+        <dl class="metrics">
+          <div><dt>State</dt><dd id="youtube-status">—</dd></div>
+          <div><dt>Video</dt><dd id="youtube-video">—</dd></div>
+          <div><dt>Last poll</dt><dd id="youtube-poll">—</dd></div>
+        </dl>
+        <p class="error" id="youtube-error"></p>
+      </article>
+
+      <article class="card disk">
+        <div class="card-head">
+          <span class="platform neutral">Storage</span>
+          <span class="pill" id="disk-pill">—</span>
+        </div>
+        <h2 id="dest-free">—</h2>
+        <p class="subtle">Destination · <code id="dest-path">—</code></p>
+        <div class="bar"><span id="dest-bar"></span></div>
+        <dl class="metrics two">
+          <div><dt>Local (temp)</dt><dd id="local-free">—</dd></div>
+          <div><dt>Recordings</dt><dd id="session-count">—</dd></div>
+        </dl>
+      </article>
+    </section>
+
+    <section class="section" id="active-section">
+      <div class="section-head">
+        <h2><span class="live-dot"></span> Recording now</h2>
+        <span class="subtle" id="active-count"></span>
+      </div>
+      <div id="active-list" class="stack">
+        <p class="empty">No active recordings. The monitors are watching both channels.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Latest recordings</h2>
+        <span class="subtle">sorted by detection</span>
+      </div>
+      <div id="recent-list" class="stack">
+        <p class="empty">No finished recordings yet.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Activity log</h2>
+        <span class="subtle">last 60 events</span>
+      </div>
+      <ul class="events" id="events"></ul>
+    </section>
+
+    <footer>
+      <span>Final storage: <code id="footer-path">—</code></span>
+      <span>Personal use only · do not redistribute · respect music licensing</span>
+    </footer>
+  </main>
+
+  <dialog id="detail-dialog">
+    <div class="dialog-head">
+      <h2 id="detail-title">Details</h2>
+      <button class="icon-btn" id="detail-close" aria-label="Close">✕</button>
+    </div>
+    <div id="detail-body" class="dialog-body"></div>
+  </dialog>
+
+  <dialog id="settings-dialog">
+    <div class="dialog-head">
+      <h2>Settings</h2>
+      <button class="icon-btn" id="settings-close" aria-label="Close">✕</button>
+    </div>
+    <div class="dialog-body settings-body">
+      <p class="settings-note" id="settings-warning"></p>
+
+      <h3 class="sub">Channels</h3>
+      <div class="form-grid">
+        <label class="check"><input type="checkbox" id="tw-enabled" /> Twitch enabled</label>
+        <label>Twitch channel
+          <input id="tw-channel" placeholder="channel · @channel · https://twitch.tv/channel" />
+        </label>
+        <label class="check"><input type="checkbox" id="yt-enabled" /> YouTube enabled</label>
+        <label>YouTube channel
+          <input id="yt-channel" placeholder="UC... · @handle · https://youtube.com/@handle" />
+        </label>
+        <label>YouTube label
+          <input id="yt-label" placeholder="Your channel name" />
+        </label>
+      </div>
+
+      <h3 class="sub">Destination folder</h3>
+      <p class="folder-selected">Selected: <code id="dest-selected">—</code></p>
+      <div class="folder-toolbar">
+        <button class="btn sm" id="folder-up" type="button">↑ Up</button>
+        <span class="mono subtle" id="folder-current">—</span>
+      </div>
+      <div class="folder-list" id="folder-list"></div>
+      <div class="folder-create">
+        <input id="folder-name" placeholder="New folder name" />
+        <button class="btn sm" id="folder-create" type="button">Create folder</button>
+      </div>
+
+      <h3 class="sub">Appearance</h3>
+      <div class="form-grid">
+        <label>Dashboard name
+          <input id="app-name-input" maxlength="80" />
+        </label>
+        <label>Mark
+          <input id="app-mark-input" maxlength="4" />
+        </label>
+        <label class="full">File name template
+          <input id="filename-template" maxlength="200" />
+        </label>
+      </div>
+
+      <p class="error" id="settings-error"></p>
+      <div class="settings-actions">
+        <button class="btn" id="settings-cancel" type="button">Cancel</button>
+        <button class="btn primary" id="settings-save" type="button">Save changes</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

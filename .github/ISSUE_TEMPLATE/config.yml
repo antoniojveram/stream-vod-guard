@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/antoniojveram/stream-vod-guard/tree/main/docs
+    about: Installation, configuration, CLI, API and troubleshooting.
+  - name: Security report
+    url: https://github.com/antoniojveram/stream-vod-guard/security/advisories/new
+    about: Please report vulnerabilities privately.
