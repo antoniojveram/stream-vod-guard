@@ -88,7 +88,7 @@ export const config = {
     channelLabel: process.env.YOUTUBE_CHANNEL_LABEL || '',
     pollMs: int(process.env.YOUTUBE_POLL_MS, 30000),
     // Max height for the backup capture. 1080 keeps full quality; 720 saves disk.
-    maxHeight: int(process.env.YOUTUBE_MAX_HEIGHT, 1080),
+    maxHeight: int(process.env.YOUTUBE_MAX_HEIGHT, 0),
     liveFromStart: bool(process.env.YOUTUBE_LIVE_FROM_START, true),
     cookiesFile: process.env.YT_COOKIES_FILE || '',
     urlOverride: process.env.YOUTUBE_URL_OVERRIDE || '',

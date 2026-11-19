@@ -1,6 +1,6 @@
 {
   "name": "stream-vod-guard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Self-hosted live stream archiver for Twitch and YouTube with a web UI and copyright-mute audit.",
   "license": "MIT",

@@ -79,7 +79,7 @@ The result is sanitized and always ends in `.mkv`.
 | `TWITCH_DISABLE_ADS` | `true` | Filter Twitch ad segments |
 | `TWITCH_OAUTH_TOKEN` | empty | Optional Twitch account token |
 | `YOUTUBE_POLL_MS` | `30000` | YouTube live poll interval |
-| `YOUTUBE_MAX_HEIGHT` | `1080` | Maximum YouTube height |
+| `YOUTUBE_MAX_HEIGHT` | `0` | `0` = maximum available; or cap height |
 | `YOUTUBE_LIVE_FROM_START` | `true` | Recover from the DVR start |
 | `YT_COOKIES_FILE` | empty | Netscape cookies file for members-only content |
 | `STALL_TIMEOUT_MS` | `240000` | Watchdog threshold with no bytes |

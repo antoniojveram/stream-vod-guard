@@ -84,6 +84,7 @@ test('real YouTube live capture (yt-dlp) produces a playable file with audio', {
     assert.equal(probe.hasVideo, true, 'no video');
     assert.equal(probe.hasAudio, true, 'no audio');
     assert.ok(probe.duration > 8, `duration too short: ${probe.duration}`);
+    assert.ok(session.final.quality?.height > 0, 'missing YouTube quality');
     console.log(`YOUTUBE SMOKE OK · duration=${probe.duration.toFixed(1)}s size=${session.final.size}`);
   } finally {
     try { await controller?.stop('cleanup'); } catch { /* ignore */ }

@@ -46,6 +46,8 @@ export async function ffprobe(file) {
     codec: s.codec_name,
     width: s.width,
     height: s.height,
+    fps: s.avg_frame_rate || s.r_frame_rate || null,
+    bitrate: s.bit_rate ? Number(s.bit_rate) : null,
     channels: s.channels,
     sampleRate: s.sample_rate,
     duration: s.duration ? Number(s.duration) : null,
@@ -606,6 +608,8 @@ export async function finalizeSession(session, { store, onUpdate } = {}) {
   }
 
   session.audit = audit;
+  const videoStream = probe.streams.find((s) => s.type === 'video');
+  const audioStream = probe.streams.find((s) => s.type === 'audio');
   session.final = {
     localFile,
     file: null,
@@ -613,6 +617,14 @@ export async function finalizeSession(session, { store, onUpdate } = {}) {
     duration: probe.duration,
     bitrate: probe.bitrate,
     streams: probe.streams,
+    quality: videoStream ? {
+      width: videoStream.width,
+      height: videoStream.height,
+      fps: videoStream.fps,
+      videoBitrate: videoStream.bitrate,
+      videoCodec: videoStream.codec,
+      audioCodec: audioStream?.codec || null,
+    } : null,
     sha256: checksum,
     verifiedAt: nowIso(),
   };
@@ -658,7 +670,10 @@ export async function finalizeSession(session, { store, onUpdate } = {}) {
   }
 
   const summary = auditSummary(audit);
-  logger.info(`[${session.id}] finalized: ${formatDuration(probe.duration || 0)} · ${humanBytes(session.final.size)} · ${summary.line}`);
+  const qualityLabel = session.final.quality
+    ? ` · ${session.final.quality.width}x${session.final.quality.height}${session.final.quality.fps ? `@${session.final.quality.fps}` : ''}`
+    : '';
+  logger.info(`[${session.id}] finalized: ${formatDuration(probe.duration || 0)} · ${humanBytes(session.final.size)}${qualityLabel} · ${summary.line}`);
   return {
     ok: true,
     file: session.final.file || localFile,

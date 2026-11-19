@@ -113,6 +113,8 @@ test('Archiver start -> capture -> end -> finalize -> destination metadata flow'
     const stat = await fsp.stat(session.final.localFile);
     assert.ok(stat.size > 100000);
     assert.ok(session.final.duration > 8, `duration ${session.final.duration}`);
+    assert.ok(session.final.quality?.width > 0, 'missing video width');
+    assert.ok(session.final.quality?.height > 0, 'missing video height');
     assert.ok(session.coverage?.ratio > 0.5, `coverage ${session.coverage?.ratio}`);
     assert.ok(session.metadataFile, 'metadata file not written');
     const meta = JSON.parse(await fsp.readFile(session.metadataFile, 'utf8'));

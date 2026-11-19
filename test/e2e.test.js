@@ -142,6 +142,7 @@ test('live capture survives a hard kill, restarts, and finalizes with audio', { 
     const probe = await ffprobe(session.final.localFile);
     assert.equal(probe.hasVideo, true, 'final file has no video');
     assert.equal(probe.hasAudio, true, 'final file has no audio');
+    assert.ok(session.final.quality?.width > 0, 'missing final quality');
     assert.ok(probe.duration > 14, `final duration too short: ${probe.duration}`);
     assert.ok(session.final.size > 200000, `final file too small: ${session.final.size}`);
 

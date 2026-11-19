@@ -64,6 +64,14 @@ function fmtDuration(seconds) {
   return `${sec}s`;
 }
 
+function fmtFps(value) {
+  if (!value) return '';
+  const [num, den] = String(value).split('/');
+  if (!den || den === '1') return String(num);
+  const fps = Number(num) / Number(den);
+  return Number.isFinite(fps) ? fps.toFixed(1) : String(value);
+}
+
 function fmtHms(seconds) {
   const s = Math.max(0, Math.round(Number(seconds) || 0));
   return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -391,6 +399,9 @@ async function openDetail(id) {
         ${kv('Stream start', fmtDate(s.streamStartedAt))}
         ${kv('Detected', fmtDate(s.detectedAt))}
         ${kv('Final duration', s.final?.duration ? fmtDuration(s.final.duration) : '—')}
+        ${kv('Resolution', s.final?.quality
+          ? `${s.final.quality.width}x${s.final.quality.height}${s.final.quality.fps ? ` @ ${fmtFps(s.final.quality.fps)} fps` : ''}`
+          : '—')}
         ${kv('Size', s.final?.size ? fmtBytes(s.final.size) : '—')}
         ${kv('Coverage', s.coverage ? `${Math.round((s.coverage.ratio || 0) * 100)}% (${fmtDuration(s.coverage.finalSeconds)} de ${fmtDuration(s.coverage.expectedSeconds)})` : '—')}
         ${kv('Restarts', String(s.restarts || 0))}

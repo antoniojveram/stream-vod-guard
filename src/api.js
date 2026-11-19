@@ -122,6 +122,7 @@ function publicSession(session, { detail = false } = {}) {
       size: session.final.size,
       duration: session.final.duration,
       bitrate: session.final.bitrate,
+      quality: session.final.quality || null,
       sha256: session.final.sha256 || null,
       archived: session.final.archived ?? null,
       verifiedAt: session.final.verifiedAt,

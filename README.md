@@ -210,7 +210,7 @@ Everything is configurable through `.env` and the dashboard. Main variables:
 | `DATA_HOST_PATH` | `./data` | State, logs, temporary parts |
 | `FILENAME_TEMPLATE` | `{channel} - {date} - {title} [{platform}-{id}]` | Final name |
 | `TWITCH_QUALITY` | `best` | Streamlink quality |
-| `YOUTUBE_MAX_HEIGHT` | `1080` | Max YouTube height |
+| `YOUTUBE_MAX_HEIGHT` | `0` | `0` = maximum available; or cap height (720, 1080…) |
 | `YOUTUBE_LIVE_FROM_START` | `true` | Recover from DVR start |
 | `STALL_TIMEOUT_MS` | `240000` | Watchdog threshold |
 | `OFFLINE_GRACE_MS` | `90000` | Wait before finalizing |
@@ -220,7 +220,16 @@ Everything is configurable through `.env` and the dashboard. Main variables:
 | `RETENTION_DAYS` | `0` | 0 = keep forever |
 | `DASHBOARD_TOKEN` | empty | Protect the dashboard |
 
-Full reference: [docs/configuration.md](docs/configuration.md).
+### Maximum quality
+
+The defaults are set to capture the best rendition each platform offers:
+
+- Twitch: `TWITCH_QUALITY=best` (source quality, generally 1080p60).
+- YouTube: `YOUTUBE_MAX_HEIGHT=0` selects the best video + best audio available (up to 4K/60 if the stream provides it).
+
+The final MKV is a **remux** (`-c copy`); there is no re-encode. The dashboard detail shows the real resolution and FPS of the finished file. Set `YOUTUBE_MAX_HEIGHT=1080` (or `720`) only if you want to trade quality for disk space.
+
+Full reference: [docs/configuration.md](docs/configuration.md) · [quality guarantees](docs/quality.md).
 
 ### Several channels
 

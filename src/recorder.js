@@ -29,8 +29,14 @@ function twitchArgs({ output, url, quality }) {
   return args;
 }
 
+function youtubeFormat(height) {
+  const cap = Number(height) || 0;
+  if (cap > 0) return `bv*[height<=${cap}]+ba/b[height<=${cap}]/b`;
+  // 0 = maximum available quality (best video + best audio, no re-encode).
+  return 'bv*+ba/b';
+}
+
 function youtubeArgs({ output, videoId, firstAttempt }) {
-  const height = config.youtube.maxHeight || 1080;
   const args = [
     '--no-playlist',
     '--no-warnings',
@@ -40,7 +46,7 @@ function youtubeArgs({ output, videoId, firstAttempt }) {
     '--skip-unavailable-fragments',
     '--socket-timeout', '20',
     '--merge-output-format', 'mkv',
-    '-f', `bv*[height<=${height}]+ba/b[height<=${height}]/b`,
+    '-f', youtubeFormat(config.youtube.maxHeight),
     '-o', output,
   ];
   if (config.youtube.cookiesFile) args.push('--cookies', config.youtube.cookiesFile);
@@ -107,7 +113,7 @@ export class CaptureController {
         args: [
           '--no-warnings', '--newline', '--no-playlist',
           '--merge-output-format', 'mkv',
-          '-f', `bv*[height<=${config.youtube.maxHeight}]+ba/b[height<=${config.youtube.maxHeight}]/b`,
+          '-f', youtubeFormat(config.youtube.maxHeight),
           '-o', this.part.output,
           config.youtube.urlOverride,
         ],
