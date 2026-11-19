@@ -84,7 +84,7 @@ The CI workflow runs unit tests and the Docker-based integration suite.
    git push origin v1.0.0
    ```
 3. The release workflow builds a multi-arch image and publishes to GHCR:
-   `ghcr.io/antoniojveram/stream-vod-guard:v1.0.0`.
+   `ghcr.io/antoniojveram/stream-vod-guard:1.0.0`.
 4. Create the GitHub release with the generated notes.
 
 ## Debugging
