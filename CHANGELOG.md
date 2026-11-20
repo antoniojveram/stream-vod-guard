@@ -9,6 +9,13 @@ All notable changes to this project are documented here. The format follows [Kee
 - Optional **HEVC compression** of finished recordings with Intel/AMD VAAPI
   hardware encoding (x265 CPU fallback). The original is kept until the new file
   is probed, decoded and verified smaller.
+- **Encoder selection in the dashboard** (`auto`, `vaapi`, `x265`, `none`) with
+  runtime re-probing when settings are saved.
+- Safe degradation on unsupported hosts: a missing encoder **skips**
+  compression and keeps the H.264 original; it never marks the recording as
+  failed or deletes it.
+- x265 is validated with a one-frame probe, and the image builds for both
+  `linux/amd64` and `linux/arm64` (Intel VAAPI driver only on amd64).
 - **YouTube backup retention**: delete the secondary copy after N days when a
   verified Twitch recording covers at least 95% of it.
 - Storage section in the dashboard settings, per-recording **Compress to HEVC**

@@ -161,6 +161,14 @@
       <h3 class="sub">Storage</h3>
       <div class="form-grid">
         <label class="check"><input type="checkbox" id="compress-enabled" /> Compress finished recordings to HEVC</label>
+        <label>Encoder
+          <select id="compress-encoder">
+            <option value="auto">Auto — GPU if available, else CPU</option>
+            <option value="vaapi">Intel/AMD iGPU (VAAPI)</option>
+            <option value="x265">CPU (x265, slow)</option>
+            <option value="none">None — keep H.264</option>
+          </select>
+        </label>
         <label>Compression quality
           <select id="compress-quality">
             <option value="high">High — near-transparent</option>

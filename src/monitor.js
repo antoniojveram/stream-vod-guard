@@ -787,6 +787,7 @@ export class Monitors {
       archiveMetaDir: config.archiveMetaDir,
       compressEnabled: config.storage.compressEnabled,
       compressQuality: config.storage.compressQuality,
+      compressEncoder: config.storage.compressEncoder,
       backupRetentionDays: config.storage.backupRetentionDays,
     };
 
@@ -872,6 +873,9 @@ export class Monitors {
         if (['high', 'balanced', 'small'].includes(settings.storage.compressQuality)) {
           config.storage.compressQuality = settings.storage.compressQuality;
         }
+        if (['auto', 'vaapi', 'x265', 'none'].includes(settings.storage.compressEncoder)) {
+          config.storage.compressEncoder = settings.storage.compressEncoder;
+        }
         const days = Number.parseInt(settings.storage.backupRetentionDays, 10);
         if (Number.isFinite(days)) {
           config.storage.backupRetentionDays = Math.max(0, Math.min(365, days));
@@ -909,6 +913,7 @@ export class Monitors {
       config.archiveMetaDir = snapshot.archiveMetaDir;
       config.storage.compressEnabled = snapshot.compressEnabled;
       config.storage.compressQuality = snapshot.compressQuality;
+      config.storage.compressEncoder = snapshot.compressEncoder;
       config.storage.backupRetentionDays = snapshot.backupRetentionDays;
       await this.startLoops().catch(() => {});
       throw error;

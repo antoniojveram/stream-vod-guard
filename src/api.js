@@ -6,10 +6,12 @@ import { config, displayPathFor, publicConfig } from './config.js';
 import { logger } from './logger.js';
 import { saveSettings, settingsFromConfig, validateDestination } from './settings.js';
 import {
+  detectEncoder,
   enqueueCompression,
   getEncoderInfo,
   getStorageStatus,
   pruneBackups,
+  refreshStorage,
 } from './storage.js';
 import { diskFreeBytes, humanBytes } from './util.js';
 
@@ -395,6 +397,9 @@ export function createApiServer({ store, archiver, monitors }) {
               compressQuality: ['high', 'balanced', 'small'].includes(body.storage?.compressQuality)
                 ? body.storage.compressQuality
                 : config.storage.compressQuality,
+              compressEncoder: ['auto', 'vaapi', 'x265', 'none'].includes(body.storage?.compressEncoder)
+                ? body.storage.compressEncoder
+                : config.storage.compressEncoder,
               backupRetentionDays: Number.isFinite(Number.parseInt(body.storage?.backupRetentionDays, 10))
                 ? Math.max(0, Math.min(365, Number.parseInt(body.storage.backupRetentionDays, 10)))
                 : config.storage.backupRetentionDays,
@@ -402,6 +407,9 @@ export function createApiServer({ store, archiver, monitors }) {
           };
           await monitors.reconfigure(settings);
           await saveSettings(settings);
+          await refreshStorage(store).catch((error) => {
+            logger.warn(`Could not refresh the compression encoder: ${error.message}`);
+          });
           logger.info('Settings saved from dashboard', {
             twitch: settings.twitch.enabled ? settings.twitch.channel : 'disabled',
             youtube: settings.youtube.enabled ? settings.youtube.channel : 'disabled',
@@ -501,6 +509,12 @@ export function createApiServer({ store, archiver, monitors }) {
         }
         if (['hevc', 'av1'].includes(session.final?.quality?.videoCodec)) {
           return json(res, 409, { error: `session is already ${session.final.quality.videoCodec}` });
+        }
+        const encoder = await detectEncoder(true);
+        if (!encoder.available) {
+          return json(res, 409, {
+            error: `no compatible HEVC encoder available: ${encoder.reason || encoder.kind}`,
+          });
         }
         const queued = enqueueCompression(session, { reason: 'manual', force: true });
         if (!queued) return json(res, 409, { error: 'compression is already queued, running or done' });

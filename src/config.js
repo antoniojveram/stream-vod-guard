@@ -232,6 +232,7 @@ export function publicConfig() {
     storage: {
       compressEnabled: config.storage.compressEnabled,
       compressQuality: config.storage.compressQuality,
+      compressEncoder: config.storage.compressEncoder,
       compressBackfillDays: config.storage.compressBackfillDays,
       backupRetentionDays: config.storage.backupRetentionDays,
     },

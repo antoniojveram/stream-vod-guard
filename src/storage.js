@@ -31,6 +31,7 @@ let storageStore = null;
 let cachedEncoder = null;
 let currentJob = null;
 let queue = [];
+const queuedIds = new Set();
 let pumping = false;
 let stopping = false;
 let pruneTimer = null;
@@ -51,23 +52,37 @@ export function getStorageStatus() {
   };
 }
 
+async function probeX265() {
+  return run('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error',
+    '-f', 'lavfi', '-i', 'color=c=black:s=320x240:r=1:d=1',
+    '-frames:v', '1',
+    '-c:v', 'libx265',
+    '-preset', 'ultrafast',
+    '-x265-params', 'log-level=error',
+    '-f', 'null', '-',
+  ], { timeoutMs: 30000 });
+}
+
 /**
- * Probe the configured hardware encoder once. VAAPI needs both the render node
- * and the Intel/AMD driver inside the image; a one-frame encode is the most
- * reliable end-to-end test.
+ * Probe the configured encoder once. Hardware VAAPI needs the render node and
+ * the Intel/AMD driver inside the image; x265 is the portable software
+ * fallback. A one-frame encode is the most reliable end-to-end test.
  */
 export async function detectEncoder(force = false) {
   if (cachedEncoder && !force) return cachedEncoder;
-  const wanted = String(config.storage.compressEncoder || 'auto').toLowerCase();
+  let wanted = String(config.storage.compressEncoder || 'auto').toLowerCase();
+  if (!['none', 'auto', 'vaapi', 'x265'].includes(wanted)) {
+    logger.warn(`Unknown COMPRESS_ENCODER value "${wanted}"; falling back to auto`);
+    wanted = 'auto';
+  }
   if (wanted === 'none') {
     cachedEncoder = { kind: 'none', name: 'none', available: false, reason: 'disabled by configuration' };
     return cachedEncoder;
   }
-  if (wanted === 'x265') {
-    cachedEncoder = { kind: 'x265', name: 'libx265', available: true, reason: 'forced by configuration' };
-    return cachedEncoder;
-  }
-  if ((wanted === 'vaapi' || wanted === 'auto') && fs.existsSync(config.storage.vaapiDevice)) {
+
+  const hasDevice = fs.existsSync(config.storage.vaapiDevice);
+  if ((wanted === 'vaapi' || wanted === 'auto') && hasDevice) {
     const probe = await run('ffmpeg', [
       '-hide_banner', '-loglevel', 'error',
       '-vaapi_device', config.storage.vaapiDevice,
@@ -86,7 +101,9 @@ export async function detectEncoder(force = false) {
       };
       return cachedEncoder;
     }
-    logger.warn('VAAPI encoder probe failed', { error: truncate(probe.stderr, 300) });
+    if (config.storage.compressEnabled || wanted === 'vaapi') {
+      logger.warn('VAAPI encoder probe failed', { error: truncate(probe.stderr, 300) });
+    }
     if (wanted === 'vaapi') {
       cachedEncoder = {
         kind: 'none',
@@ -97,16 +114,37 @@ export async function detectEncoder(force = false) {
       return cachedEncoder;
     }
   }
-  if (wanted === 'auto' || wanted === 'x265') {
+
+  if (wanted === 'vaapi') {
+    cachedEncoder = {
+      kind: 'none',
+      name: 'none',
+      available: false,
+      reason: hasDevice
+        ? 'VAAPI encoder failed to initialise'
+        : `no VAAPI render node at ${config.storage.vaapiDevice}`,
+    };
+    return cachedEncoder;
+  }
+
+  // auto / x265: the software encoder works on any x86-64 or arm64 CPU.
+  const probe = await probeX265();
+  if (probe.code === 0) {
     cachedEncoder = {
       kind: 'x265',
       name: 'libx265',
       available: true,
-      reason: fs.existsSync(config.storage.vaapiDevice) ? 'VAAPI unavailable, using CPU' : 'no VAAPI render node',
+      reason: hasDevice ? 'VAAPI unavailable, using CPU' : 'no VAAPI render node, using CPU',
     };
     return cachedEncoder;
   }
-  cachedEncoder = { kind: 'none', name: 'none', available: false, reason: 'no encoder available' };
+  logger.warn('x265 encoder probe failed', { error: truncate(probe.stderr, 300) });
+  cachedEncoder = {
+    kind: 'none',
+    name: 'none',
+    available: false,
+    reason: 'neither VAAPI nor the x265 software encoder is available',
+  };
   return cachedEncoder;
 }
 
@@ -237,9 +275,17 @@ export function enqueueCompression(session, { reason = 'auto', force = false } =
   if (!session || !storageStore) return false;
   if (!config.storage.compressEnabled && !force) return false;
   if (session.status !== 'done' || !session.final?.file) return false;
-  if (['queued', 'running', 'done'].includes(session.compression?.status)) return false;
+  if (['running', 'done'].includes(session.compression?.status)) return false;
+  if (queuedIds.has(session.id)) return false;
   if (['hevc', 'av1'].includes(session.final?.quality?.videoCodec)) return false;
   if (!fs.existsSync(session.final.file)) return false;
+  if (!cachedEncoder?.available) {
+    logger.warn(
+      `[${session.id}] compression skipped: no compatible encoder `
+      + `(${cachedEncoder?.reason || 'not detected yet'})`,
+    );
+    return false;
+  }
 
   // The YouTube copy will be deleted by the retention policy: do not waste CPU
   // compressing it. A YouTube-only recording has no Twitch cover and is kept.
@@ -271,6 +317,7 @@ export function enqueueCompression(session, { reason = 'auto', force = false } =
     sessionId: session.id,
     message: `HEVC compression queued (${quality.label}${force ? ', manual' : ''})`,
   });
+  queuedIds.add(session.id);
   queue.push({ id: session.id, force });
   void pump();
   return true;
@@ -282,6 +329,7 @@ async function pump() {
   try {
     while (queue.length && !stopping) {
       const job = queue.shift();
+      queuedIds.delete(job.id);
       const session = storageStore?.getSession(job.id);
       if (!session) continue;
       if (!config.storage.compressEnabled && !job.force) {
@@ -390,7 +438,14 @@ export async function compressSession(session, {
 
   const enc = encoder || await detectEncoder();
   if (!enc.available || enc.kind === 'none') {
-    return markFailed(session, `no HEVC encoder available: ${enc.reason || enc.kind}`, store);
+    const reason = `no compatible encoder: ${enc.reason || enc.kind}`;
+    setCompression(session, {
+      status: 'queued',
+      error: reason,
+      queuedAt: nowIso(),
+    }, store);
+    logger.warn(`[${session.id}] HEVC compression skipped: ${reason}`);
+    return { ok: false, skipped: true, reason };
   }
   const q = compressionQuality(quality || config.storage.compressQuality);
   const originalSize = await fileSize(target);
@@ -572,6 +627,10 @@ export async function compressSession(session, {
 async function backfill(store) {
   const days = config.storage.compressBackfillDays;
   if (!config.storage.compressEnabled || !days || days <= 0) return 0;
+  if (!cachedEncoder?.available) {
+    logger.warn('HEVC compression is enabled but no compatible encoder is available; recent recordings stay H.264');
+    return 0;
+  }
   const cutoff = Date.now() - days * 86400000;
   let queued = 0;
   for (const session of store.listSessions({ limit: 500 })) {
@@ -604,9 +663,40 @@ async function recoverJobs(store) {
         queuedAt: nowIso(),
       }, store);
     }
+    if (queuedIds.has(session.id)) continue;
+    queuedIds.add(session.id);
     queue.push({ id: session.id, force: true });
   }
   if (queue.length) void pump();
+}
+
+async function parkJobs(store) {
+  for (const session of store.listSessions({ limit: 1000 })) {
+    if (session.compression?.status !== 'running') continue;
+    setCompression(session, {
+      status: 'queued',
+      error: 'waiting for an available encoder',
+      queuedAt: nowIso(),
+    }, store);
+  }
+}
+
+/**
+ * Re-probe the encoder and resume/queue work. Called after the settings change
+ * so a user can switch from vaapi to x265 (or attach a GPU and re-probe)
+ * without restarting the container.
+ */
+export async function refreshStorage(store = storageStore) {
+  if (!store) return getEncoderInfo();
+  const encoder = await detectEncoder(true);
+  if (!config.storage.compressEnabled) return encoder;
+  if (!encoder.available) {
+    await parkJobs(store);
+    return encoder;
+  }
+  await recoverJobs(store);
+  await backfill(store);
+  return encoder;
 }
 
 /**
@@ -681,21 +771,23 @@ export async function initStorage(store) {
     compress: config.storage.compressEnabled ? config.storage.compressQuality : 'disabled',
     encoder: encoder.name,
     encoderKind: encoder.kind,
+    encoderReason: encoder.reason || null,
     backupRetentionDays: config.storage.backupRetentionDays,
     backfillDays: config.storage.compressBackfillDays,
     vaapiDevice: fs.existsSync(config.storage.vaapiDevice) ? config.storage.vaapiDevice : 'missing',
   });
   if (config.storage.compressEnabled && !encoder.available) {
-    logger.warn(`Compression is enabled but no encoder is available: ${encoder.reason || encoder.kind}`);
-  }
-  if (config.storage.compressEnabled && encoder.kind === 'x265') {
-    logger.warn('Using CPU x265 for compression: expect several hours per 10 h recording. '
-      + 'Mount /dev/dri and install the Intel/AMD VAAPI driver for hardware encoding.');
-  }
-
-  if (config.storage.compressEnabled) {
+    logger.warn('Compression is enabled but no compatible encoder is available. Finished recordings '
+      + 'will stay H.264 and nothing is deleted. Use COMPRESS_ENCODER=auto or x265 for the CPU '
+      + 'fallback, or pass a supported GPU to the container.');
+    await parkJobs(store);
+  } else if (config.storage.compressEnabled) {
     await recoverJobs(store);
     await backfill(store);
+  }
+  if (config.storage.compressEnabled && encoder.kind === 'x265') {
+    logger.warn('Using the x265 software encoder: compatible with any x86-64/arm64 CPU, but slow. '
+      + 'The original is kept until the HEVC file is verified.');
   }
 
   const runPrune = () => pruneBackups(store).catch((error) => {

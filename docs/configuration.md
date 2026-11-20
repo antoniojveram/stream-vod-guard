@@ -123,8 +123,11 @@ Hardware encoding requires passing `/dev/dri` to the container:
 docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
 ```
 
-The app logs the detected encoder (`hevc_vaapi`, `libx265` or `none`). Full guide:
-[storage.md](storage.md).
+The app logs the detected encoder (`hevc_vaapi`, `libx265` or `none`) and
+validates it with a one-frame test encode. If no compatible encoder is
+available, compression is **skipped** and the original H.264 file is kept
+untouched. `auto` falls back to x265; `vaapi` strictly requires hardware. Full
+guide: [storage.md](storage.md).
 
 ## Mute audit
 

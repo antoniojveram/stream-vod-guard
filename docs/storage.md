@@ -68,21 +68,54 @@ RENDER_GID=992
 docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
 ```
 
-The app probes the encoder at startup and logs one of:
+The app probes the encoder at startup with a one-frame encode and logs one of:
 
 - `vaapi` / `hevc_vaapi`: hardware encoding ready.
-- `x265` / `libx265`: no usable GPU; CPU encoding, **much** slower.
-- `none`: compression unavailable (wrong device/permissions/driver).
+- `x265` / `libx265`: portable software encoding, **much** slower.
+- `none`: no compatible encoder found; compression is skipped.
 
-Set `COMPRESS_ENCODER=vaapi` to require hardware encoding and fail loudly instead
-of silently falling back to the CPU.
+### Encoder modes
 
-### CPU fallback
+| `COMPRESS_ENCODER` | Behaviour |
+| --- | --- |
+| `auto` (default) | Tries VAAPI, then x265. If neither works, compression is skipped and files stay H.264. |
+| `vaapi` | Requires Intel/AMD VAAPI. If the device/driver is unavailable, compression is skipped; nothing is deleted. |
+| `x265` | Forces the software encoder. Works on amd64 and arm64, but is slow. |
+| `none` | Disables compression. |
 
-`COMPRESS_ENCODER=auto` falls back to `libx265` when VAAPI is unavailable. On a
-4-core N100, x265 `preset fast` encodes 1080p60 at roughly **0.25× real time**:
-a 10-hour stream can take 30–40 hours. It still works, but keep the machine on
-and expect the queue to be busy. Use `vaapi` on supported hardware.
+The encoder can be changed from **Settings → Storage** without editing `.env`.
+Saving re-probes the machine and queues recent recordings if compression becomes
+available.
+
+### Compatibility matrix
+
+| Host | Encoder | Result |
+| --- | --- | --- |
+| Intel iGPU (N100, NUC, etc.) with `/dev/dri` | `hevc_vaapi` | Hardware; fast |
+| AMD iGPU with `/dev/dri` | `hevc_vaapi` | Hardware; fast |
+| NVIDIA GPU | `x265` | CPU; NVENC is not wired up yet. Use the CPU fallback |
+| CPU-only server / NAS | `x265` | CPU; works, slow |
+| Raspberry Pi / arm64 | `x265` | CPU; works, slow |
+| Docker Desktop (macOS/Windows) | `x265` | CPU; no `/dev/dri` passthrough |
+| No usable encoder | `none` | **Compression is skipped; the H.264 original is kept** |
+
+The image is published for `linux/amd64` **and** `linux/arm64`; the Intel driver
+is only installed on amd64. The `docker-compose.vaapi.yml` override is optional:
+without it the container starts normally and uses x265.
+
+### What "skipped" means
+
+If no encoder is available, Stream VOD Guard does **not** mark the recording as
+failed and does **not** touch the file. The dashboard shows that compression is
+unavailable, and the original H.264 remains playable and downloadable. If an
+encoder is attached later (or `COMPRESS_ENCODER=auto`/`x265` is selected), saving
+the settings re-probes and can queue the recent recordings again.
+
+### x265 performance
+
+On a 4-core N100, x265 `preset fast` encodes 1080p60 at roughly **0.25× real
+time**: a 10-hour stream can take 30–40 hours. It still works, but keep the
+machine on and expect the queue to be busy. Hardware VAAPI is ~6× faster.
 
 ### HEVC compatibility
 
@@ -136,7 +169,7 @@ is compressed normally.
 | --- | --- | --- |
 | `COMPRESS_ENABLED` | `false` | Compress finished recordings |
 | `COMPRESS_QUALITY` | `balanced` | `high`, `balanced` or `small` |
-| `COMPRESS_ENCODER` | `auto` | `auto`, `vaapi`, `x265` or `none` |
+| `COMPRESS_ENCODER` | `auto` | `auto`, `vaapi`, `x265` or `none`; editable in the dashboard |
 | `COMPRESS_MIN_SAVINGS` | `10` | Skip if the saving is below this percentage |
 | `COMPRESS_BACKFILL_DAYS` | `0` | On startup, queue recordings from the last N days |
 | `BACKUP_RETENTION_DAYS` | `0` | Delete the YouTube backup after N days; 0 = keep |

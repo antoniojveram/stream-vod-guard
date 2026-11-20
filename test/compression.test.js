@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { config } from '../src/config.js';
 import { Store } from '../src/store.js';
 import { ffprobe } from '../src/postprocess.js';
-import { compressSession, coverageOf, pruneBackups } from '../src/storage.js';
+import { compressSession, coverageOf, detectEncoder, pruneBackups } from '../src/storage.js';
 
 const E2E = process.env.E2E === '1';
 const DAY = 24 * 60 * 60 * 1000;
@@ -126,6 +126,73 @@ test('compressSession replaces H.264 with verified HEVC and keeps audio', { skip
   } finally {
     restoreStorage(snapshot);
     await fsp.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('compressSession keeps the original when no encoder is available', { skip: !E2E, timeout: 60000 }, async () => {
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'stream-vod-no-encoder-'));
+  const file = path.join(dir, 'recording.mkv');
+  await makeVideo(file);
+  const before = await ffprobe(file);
+  const beforeSize = (await fsp.stat(file)).size;
+
+  const store = await new Store(path.join(dir, 'state.json')).init();
+  const now = new Date().toISOString();
+  const session = {
+    id: 'twitch-no-encoder',
+    platform: 'twitch',
+    status: 'done',
+    title: 'No encoder test',
+    detectedAt: now,
+    recordingStartedAt: now,
+    endedAt: now,
+    destinationDir: dir,
+    final: {
+      file,
+      size: beforeSize,
+      duration: before.duration,
+      quality: { width: 640, height: 360, fps: '30/1', videoCodec: 'h264', audioCodec: 'aac' },
+      archived: true,
+      verifiedAt: now,
+    },
+  };
+  store.putSession(session);
+
+  try {
+    const result = await compressSession(session, {
+      store,
+      encoder: { kind: 'none', name: 'none', available: false, reason: 'test without encoder' },
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.skipped, true);
+    assert.match(result.reason, /no compatible encoder/);
+    const after = await ffprobe(file);
+    assert.equal(after.streams.find((stream) => stream.type === 'video')?.codec, 'h264');
+    assert.equal((await fsp.stat(file)).size, beforeSize);
+    const saved = store.getSession(session.id);
+    assert.equal(saved.compression.status, 'queued');
+    assert.match(saved.compression.error, /no compatible encoder/);
+    assert.equal(await exists(`${file}.hevc-tmp-test.mkv`), false);
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('detectEncoder honours none and validates the x265 software fallback', { timeout: 60000 }, async () => {
+  const snapshot = storageSnapshot();
+  try {
+    config.storage.compressEncoder = 'none';
+    const disabled = await detectEncoder(true);
+    assert.equal(disabled.kind, 'none');
+    assert.equal(disabled.available, false);
+
+    config.storage.compressEncoder = 'x265';
+    const software = await detectEncoder(true);
+    assert.equal(software.kind, 'x265');
+    assert.equal(software.available, true);
+  } finally {
+    restoreStorage(snapshot);
+    await detectEncoder(true).catch(() => {});
   }
 });
 

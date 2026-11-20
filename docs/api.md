@@ -63,6 +63,7 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
   },
   "storage": {
     "compressEnabled": true,
+    "compressEncoder": "auto",
     "compressQuality": "balanced",
     "backupRetentionDays": 7,
     "encoder": { "kind": "vaapi", "name": "hevc_vaapi", "available": true }
@@ -83,6 +84,7 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
   "destination": { "dir": "/videos/example" },
   "storage": {
     "compressEnabled": true,
+    "compressEncoder": "auto",
     "compressQuality": "balanced",
     "backupRetentionDays": 7
   }
@@ -90,8 +92,10 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
 ```
 
 - Destination must be inside `VIDEOS_ROOT`.
+- `storage.compressEncoder` accepts `auto`, `vaapi`, `x265` or `none`.
 - `storage.compressQuality` accepts `high`, `balanced` or `small`.
 - `storage.backupRetentionDays` is clamped to `0..365`; `0` keeps both platforms.
+- Saving settings re-probes the encoder and may queue recent recordings.
 - Enabling a platform with an empty channel returns `400`.
 - Changing a channel finalizes active sessions for that platform.
 - Changing the destination affects new sessions only.
@@ -131,6 +135,7 @@ Creates the folder recursively. Both endpoints reject paths outside `VIDEOS_ROOT
   "queue": 0,
   "running": null,
   "compressEnabled": true,
+  "compressEncoder": "auto",
   "compressQuality": "balanced",
   "compressBackfillDays": 2,
   "backupRetentionDays": 7

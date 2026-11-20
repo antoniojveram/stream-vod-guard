@@ -256,8 +256,13 @@ getent group render                 # usually 992
 docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
 ```
 
-The dashboard shows the detected encoder and lets you toggle both features in
-**⚙ Settings → Storage**. Full guide: [docs/storage.md](docs/storage.md).
+If no compatible GPU is available, `COMPRESS_ENCODER=auto` falls back to **x265
+on the CPU**. If neither VAAPI nor x265 works, compression is **skipped** and the
+H.264 file is kept untouched — no recording is lost. The dashboard lets you
+choose **Auto / VAAPI / CPU / None** and shows the detected encoder.
+
+The image is published for **linux/amd64 and linux/arm64**; the VAAPI override is
+optional. Full guide: [docs/storage.md](docs/storage.md).
 
 ### Several channels
 

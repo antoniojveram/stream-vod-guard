@@ -49,6 +49,7 @@ export function settingsFromConfig() {
     storage: {
       compressEnabled: config.storage.compressEnabled,
       compressQuality: config.storage.compressQuality,
+      compressEncoder: config.storage.compressEncoder,
       backupRetentionDays: config.storage.backupRetentionDays,
     },
   };
@@ -101,6 +102,9 @@ export function applySettingsToConfig(settings) {
     }
     if (['high', 'balanced', 'small'].includes(settings.storage.compressQuality)) {
       config.storage.compressQuality = settings.storage.compressQuality;
+    }
+    if (['auto', 'vaapi', 'x265', 'none'].includes(settings.storage.compressEncoder)) {
+      config.storage.compressEncoder = settings.storage.compressEncoder;
     }
     const days = Number.parseInt(settings.storage.backupRetentionDays, 10);
     if (Number.isFinite(days)) {

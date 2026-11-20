@@ -148,7 +148,7 @@ function compressionText(session) {
     return `HEVC · ${c.savedPercent || 0}% smaller (${fmtBytes(c.savedBytes || 0)} saved)`;
   }
   if (c.status === 'running') return `HEVC · ${c.progress ?? 0}%${c.speed ? ` · ${esc(c.speed)}` : ''}`;
-  if (c.status === 'queued') return 'HEVC queued';
+  if (c.status === 'queued') return c.error ? `HEVC queued: ${esc(c.error)}` : 'HEVC queued';
   if (c.status === 'skipped') return `Skipped: ${esc(c.reason || '—')}`;
   if (c.status === 'failed') return `Failed: ${esc(c.error || '—')}`;
   return esc(c.status || '—');
@@ -517,6 +517,36 @@ async function loadFolders(folderPath) {
   });
 }
 
+function updateStorageNote() {
+  const note = $('storage-note');
+  if (!note) return;
+  const selected = $('compress-encoder')?.value || 'auto';
+  const encoder = state.settings?.storage?.encoder;
+  if (selected === 'none') {
+    note.textContent = 'Compression is off: finished recordings stay H.264. Nothing is deleted.';
+    return;
+  }
+  if (selected === 'x265') {
+    note.textContent = 'CPU fallback: compatible with any x86-64/arm64 machine, but slow (hours per long recording). The original is kept until verified.';
+    return;
+  }
+  if (selected === 'vaapi') {
+    note.textContent = encoder?.kind === 'vaapi'
+      ? `Hardware encoder ready: ${encoder.name}. Finished files are compressed after the stream ends; the original is kept until verified.`
+      : 'VAAPI was not detected. Save to re-probe; if unavailable, recordings stay H.264.';
+    return;
+  }
+  if (encoder?.kind === 'vaapi') {
+    note.textContent = `Hardware encoder ready: ${encoder.name}. Finished files are compressed after the stream ends; the original is kept until verified.`;
+  } else if (encoder?.kind === 'x265') {
+    note.textContent = 'No GPU encoder detected. Auto will use CPU x265: compatible but slow. The original is kept until verified.';
+  } else if (encoder?.kind === 'none') {
+    note.textContent = `No compatible encoder found (${encoder.reason || 'not available'}). Files stay H.264; nothing is deleted. Choose CPU (x265) or Auto to try the software fallback.`;
+  } else {
+    note.textContent = 'Checking the compression encoder…';
+  }
+}
+
 async function openSettings() {
   const dialog = $('settings-dialog');
   $('settings-error').textContent = '';
@@ -533,18 +563,10 @@ async function openSettings() {
     $('app-mark-input').value = settings.appMark || '';
     $('filename-template').value = settings.filenameTemplate || '';
     $('compress-enabled').checked = Boolean(settings.storage?.compressEnabled);
+    $('compress-encoder').value = settings.storage?.compressEncoder || 'auto';
     $('compress-quality').value = settings.storage?.compressQuality || 'balanced';
     $('backup-retention').value = settings.storage?.backupRetentionDays ?? 0;
-    const encoder = settings.storage?.encoder;
-    if (encoder?.kind === 'vaapi') {
-      $('storage-note').textContent = `Hardware encoder ready: ${encoder.name}. Finished files are compressed after the stream ends; the original is kept until the new file is verified.`;
-    } else if (encoder?.kind === 'x265') {
-      $('storage-note').textContent = 'No GPU encoder detected. Compression will use the CPU and can take several hours per long recording.';
-    } else if (encoder?.kind === 'none') {
-      $('storage-note').textContent = `Compression is unavailable: ${encoder.reason || 'no encoder available'}.`;
-    } else {
-      $('storage-note').textContent = 'Checking the compression encoder…';
-    }
+    updateStorageNote();
     const active = settings.activeSessions || 0;
     $('settings-warning').textContent = active
       ? `${active} active recording(s). Changing a channel will stop and finalize that channel; the folder only affects new recordings.`
@@ -602,6 +624,7 @@ async function saveSettings() {
       destination: { dir: state.folder.path },
       storage: {
         compressEnabled: $('compress-enabled').checked,
+        compressEncoder: $('compress-encoder').value,
         compressQuality: $('compress-quality').value,
         backupRetentionDays: Number.parseInt($('backup-retention').value, 10) || 0,
       },
@@ -612,6 +635,7 @@ async function saveSettings() {
       body: JSON.stringify(body),
     });
     state.settings = settings;
+    updateStorageNote();
     $('settings-warning').className = 'settings-note ok';
     $('settings-warning').textContent = 'Saved. Channels, destination, storage and appearance updated.';
     await refresh();
@@ -658,6 +682,7 @@ $('settings-open').addEventListener('click', openSettings);
 $('settings-close').addEventListener('click', () => $('settings-dialog').close());
 $('settings-cancel').addEventListener('click', () => $('settings-dialog').close());
 $('settings-save').addEventListener('click', saveSettings);
+$('compress-encoder').addEventListener('change', updateStorageNote);
 $('folder-up').addEventListener('click', async () => {
   if (!state.folder?.parent) return;
   try {
