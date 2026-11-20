@@ -26,8 +26,6 @@ export function validateDestination(input) {
 
 export function settingsFromConfig() {
   return {
-    appName: config.appName,
-    appMark: config.appMark,
     filenameTemplate: config.filenameTemplate,
     twitch: {
       enabled: config.twitch.enabled,
@@ -46,6 +44,12 @@ export function settingsFromConfig() {
       root: config.videosRoot,
       hostRoot: config.videosHostRoot,
     },
+    storage: {
+      compressEnabled: config.storage.compressEnabled,
+      compressQuality: config.storage.compressQuality,
+      compressEncoder: config.storage.compressEncoder,
+      backupRetentionDays: config.storage.backupRetentionDays,
+    },
   };
 }
 
@@ -56,12 +60,6 @@ export function settingsFromConfig() {
  */
 export function applySettingsToConfig(settings) {
   if (!settings || typeof settings !== 'object') return false;
-  if (typeof settings.appName === 'string' && settings.appName.trim()) {
-    config.appName = settings.appName.trim().slice(0, 80);
-  }
-  if (typeof settings.appMark === 'string' && settings.appMark.trim()) {
-    config.appMark = settings.appMark.trim().slice(0, 4);
-  }
   if (typeof settings.filenameTemplate === 'string' && settings.filenameTemplate.trim()) {
     config.filenameTemplate = settings.filenameTemplate.trim().slice(0, 200);
   }
@@ -89,6 +87,21 @@ export function applySettingsToConfig(settings) {
     config.recordingsDir = dir;
     config.archiveDisplayPath = settings.destination.display || displayPathFor(dir);
     config.archiveMetaDir = path.join(dir, '.stream-vod-guard');
+  }
+  if (settings.storage && typeof settings.storage === 'object') {
+    if (settings.storage.compressEnabled !== undefined) {
+      config.storage.compressEnabled = settings.storage.compressEnabled !== false;
+    }
+    if (['high', 'balanced', 'small'].includes(settings.storage.compressQuality)) {
+      config.storage.compressQuality = settings.storage.compressQuality;
+    }
+    if (['auto', 'vaapi', 'x265', 'none'].includes(settings.storage.compressEncoder)) {
+      config.storage.compressEncoder = settings.storage.compressEncoder;
+    }
+    const days = Number.parseInt(settings.storage.backupRetentionDays, 10);
+    if (Number.isFinite(days)) {
+      config.storage.backupRetentionDays = Math.max(0, Math.min(365, days));
+    }
   }
   return true;
 }

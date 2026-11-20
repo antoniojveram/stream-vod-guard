@@ -42,6 +42,7 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
 | `GET` | `/api/sessions/:id` | Full session, parts, audit and silences |
 | `POST` | `/api/sessions/:id/finalize` | Stop capture and finalize now |
 | `POST` | `/api/sessions/:id/reaudit` | Schedule another Twitch VOD mute audit |
+| `POST` | `/api/sessions/:id/compress` | Queue the final file for HEVC compression |
 
 ## Settings
 
@@ -49,8 +50,6 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
 
 ```json
 {
-  "appName": "Stream VOD Guard",
-  "appMark": "SV",
   "filenameTemplate": "{channel} - {date} - {title} [{platform}-{id}]",
   "twitch": { "enabled": true, "channel": "example", "resolved": "example" },
   "youtube": { "enabled": true, "channel": "@example", "label": "Example", "resolved": "UC..." },
@@ -60,6 +59,13 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
     "root": "/videos",
     "hostRoot": "./videos"
   },
+  "storage": {
+    "compressEnabled": true,
+    "compressEncoder": "auto",
+    "compressQuality": "balanced",
+    "backupRetentionDays": 7,
+    "encoder": { "kind": "vaapi", "name": "hevc_vaapi", "available": true }
+  },
   "activeSessions": 0
 }
 ```
@@ -68,16 +74,24 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
 
 ```json
 {
-  "appName": "My Guard",
-  "appMark": "MG",
   "filenameTemplate": "{date} - {channel} - {title}",
   "twitch": { "enabled": true, "channel": "example" },
   "youtube": { "enabled": false, "channel": "" },
-  "destination": { "dir": "/videos/example" }
+  "destination": { "dir": "/videos/example" },
+  "storage": {
+    "compressEnabled": true,
+    "compressEncoder": "auto",
+    "compressQuality": "balanced",
+    "backupRetentionDays": 7
+  }
 }
 ```
 
 - Destination must be inside `VIDEOS_ROOT`.
+- `storage.compressEncoder` accepts `auto`, `vaapi`, `x265` or `none`.
+- `storage.compressQuality` accepts `high`, `balanced` or `small`.
+- `storage.backupRetentionDays` is clamped to `0..365`; `0` keeps both platforms.
+- Saving settings re-probes the encoder and may queue recent recordings.
 - Enabling a platform with an empty channel returns `400`.
 - Changing a channel finalizes active sessions for that platform.
 - Changing the destination affects new sessions only.
@@ -106,6 +120,37 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
 ```
 
 Creates the folder recursively. Both endpoints reject paths outside `VIDEOS_ROOT`.
+
+## Storage
+
+`GET /api/storage`
+
+```json
+{
+  "encoder": { "kind": "vaapi", "name": "hevc_vaapi", "available": true },
+  "queue": 0,
+  "running": null,
+  "compressEnabled": true,
+  "compressEncoder": "auto",
+  "compressQuality": "balanced",
+  "compressBackfillDays": 2,
+  "backupRetentionDays": 7
+}
+```
+
+`POST /api/storage/prune` runs the YouTube backup retention now. Add
+`?dryRun=1` to list candidates without deleting anything:
+
+```json
+{
+  "ok": true,
+  "pruned": 1,
+  "freedBytes": 2147483648,
+  "candidates": [
+    { "id": "youtube-123", "file": "/videos/recordings/example.mkv", "size": 2147483648, "twitchSessionId": "twitch-456" }
+  ]
+}
+```
 
 ## Events
 

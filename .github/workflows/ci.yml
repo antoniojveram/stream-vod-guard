@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - name: Build image
         uses: docker/build-push-action@v7
@@ -45,10 +46,21 @@ jobs:
       - name: Capture, audit and integration tests
         run: |
           docker run --rm -e E2E=1 --entrypoint node stream-vod-guard:ci \
-            --test test/audit.test.js test/e2e.test.js test/integration.test.js
-      - name: Validate Compose file
+            --test test/audit.test.js test/compression.test.js test/e2e.test.js test/integration.test.js
+      - name: Validate Compose files
         run: |
           cp .env.example .env
           mkdir -p videos/recordings data
           docker compose config >/dev/null
+          docker compose -f docker-compose.yml -f docker-compose.vaapi.yml config >/dev/null
           echo "docker compose config OK"
+      - name: Build arm64 image (compatibility)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false
+          outputs: type=cacheonly
+          build-args: APP_VERSION=ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

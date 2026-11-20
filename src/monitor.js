@@ -14,6 +14,7 @@ import {
   retryPendingArchives,
 } from './postprocess.js';
 import { validateDestination } from './settings.js';
+import { enqueueCompression } from './storage.js';
 import { findVodForStream, getStream, getVodMutes } from './twitch.js';
 import { detectLiveFromRss, getLiveVideo, resolveYouTubeChannelId } from './youtube.js';
 import {
@@ -260,6 +261,7 @@ export class Archiver {
         if (result.ok) {
           void notifyFinal(session, summary);
           this.scheduleVodWatch(session);
+          if (session.status === 'done') enqueueCompression(session);
         } else {
           void notifyError(`Error finalizing ${session.title}`, result.error);
         }
@@ -423,7 +425,9 @@ export class Archiver {
       this.lastArchiveRetryAt = now;
       if (!this.retryingArchives) {
         this.retryingArchives = true;
-        void retryPendingArchives(this.store).finally(() => {
+        void retryPendingArchives(this.store, {
+          onArchived: (session) => enqueueCompression(session),
+        }).finally(() => {
           this.retryingArchives = false;
         });
       }
@@ -768,8 +772,6 @@ export class Monitors {
    */
   async reconfigure(settings) {
     const snapshot = {
-      appName: config.appName,
-      appMark: config.appMark,
       filenameTemplate: config.filenameTemplate,
       twitchEnabled: config.twitch.enabled,
       twitchInput: config.twitch.channelInput,
@@ -781,6 +783,10 @@ export class Monitors {
       recordingsDir: config.recordingsDir,
       archiveDisplayPath: config.archiveDisplayPath,
       archiveMetaDir: config.archiveMetaDir,
+      compressEnabled: config.storage.compressEnabled,
+      compressQuality: config.storage.compressQuality,
+      compressEncoder: config.storage.compressEncoder,
+      backupRetentionDays: config.storage.backupRetentionDays,
     };
 
     let resolvedYoutube = null;
@@ -821,8 +827,6 @@ export class Monitors {
         }
       }
 
-      if (settings.appName?.trim()) config.appName = settings.appName.trim().slice(0, 80);
-      if (settings.appMark?.trim()) config.appMark = settings.appMark.trim().slice(0, 4);
       if (settings.filenameTemplate?.trim()) config.filenameTemplate = settings.filenameTemplate.trim().slice(0, 200);
 
       if (settings.twitch) {
@@ -858,6 +862,22 @@ export class Monitors {
         config.archiveDisplayPath = settings.destination.display;
       }
 
+      if (settings.storage) {
+        if (settings.storage.compressEnabled !== undefined) {
+          config.storage.compressEnabled = settings.storage.compressEnabled !== false;
+        }
+        if (['high', 'balanced', 'small'].includes(settings.storage.compressQuality)) {
+          config.storage.compressQuality = settings.storage.compressQuality;
+        }
+        if (['auto', 'vaapi', 'x265', 'none'].includes(settings.storage.compressEncoder)) {
+          config.storage.compressEncoder = settings.storage.compressEncoder;
+        }
+        const days = Number.parseInt(settings.storage.backupRetentionDays, 10);
+        if (Number.isFinite(days)) {
+          config.storage.backupRetentionDays = Math.max(0, Math.min(365, days));
+        }
+      }
+
       await this.startLoops();
       this.archiver.store.addEvent({
         event: 'settings-updated',
@@ -874,8 +894,6 @@ export class Monitors {
       return true;
     } catch (error) {
       // Roll back config and bring the old monitors back.
-      config.appName = snapshot.appName;
-      config.appMark = snapshot.appMark;
       config.filenameTemplate = snapshot.filenameTemplate;
       config.twitch.enabled = snapshot.twitchEnabled;
       config.twitch.channelInput = snapshot.twitchInput;
@@ -887,6 +905,10 @@ export class Monitors {
       config.recordingsDir = snapshot.recordingsDir;
       config.archiveDisplayPath = snapshot.archiveDisplayPath;
       config.archiveMetaDir = snapshot.archiveMetaDir;
+      config.storage.compressEnabled = snapshot.compressEnabled;
+      config.storage.compressQuality = snapshot.compressQuality;
+      config.storage.compressEncoder = snapshot.compressEncoder;
+      config.storage.backupRetentionDays = snapshot.backupRetentionDays;
       await this.startLoops().catch(() => {});
       throw error;
     }

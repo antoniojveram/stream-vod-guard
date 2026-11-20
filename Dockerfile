@@ -15,11 +15,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
+      mesa-va-drivers \
       python3 \
       python3-venv \
       ca-certificates \
       curl \
       tini \
+    && if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+         apt-get install -y --no-install-recommends intel-media-va-driver; \
+       fi \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv \

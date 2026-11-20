@@ -2,9 +2,17 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
-import { config, displayPathFor, publicConfig } from './config.js';
+import { APP_NAME, config, displayPathFor, publicConfig } from './config.js';
 import { logger } from './logger.js';
 import { saveSettings, settingsFromConfig, validateDestination } from './settings.js';
+import {
+  detectEncoder,
+  enqueueCompression,
+  getEncoderInfo,
+  getStorageStatus,
+  pruneBackups,
+  refreshStorage,
+} from './storage.js';
 import { diskFreeBytes, humanBytes } from './util.js';
 
 const MIME = {
@@ -64,6 +72,18 @@ function resolveRequestedPath(input) {
     ? (path.isAbsolute(raw) ? raw : path.join(config.videosRoot, raw))
     : config.videosRoot;
   return validateDestination(candidate);
+}
+
+function settingsPayload(store) {
+  const settings = settingsFromConfig();
+  return {
+    ...settings,
+    storage: {
+      ...settings.storage,
+      encoder: getEncoderInfo(),
+    },
+    activeSessions: store.activeSessions().length,
+  };
 }
 
 function isAuthorized(req, url) {  if (!config.dashboardToken) return true;
@@ -126,6 +146,31 @@ function publicSession(session, { detail = false } = {}) {
       sha256: session.final.sha256 || null,
       archived: session.final.archived ?? null,
       verifiedAt: session.final.verifiedAt,
+      compressedAt: session.final.compressedAt || null,
+      prunedFile: session.final.prunedFile || null,
+    } : null,
+    compression: session.compression ? {
+      status: session.compression.status,
+      encoder: session.compression.encoder || null,
+      encoderName: session.compression.encoderName || null,
+      quality: session.compression.quality || null,
+      qp: session.compression.qp ?? null,
+      progress: session.compression.progress ?? null,
+      speed: session.compression.speed || null,
+      originalSize: session.compression.originalSize ?? null,
+      compressedSize: session.compression.compressedSize ?? null,
+      savedBytes: session.compression.savedBytes ?? null,
+      savedPercent: session.compression.savedPercent ?? null,
+      reason: session.compression.reason || null,
+      error: session.compression.error || null,
+      startedAt: session.compression.startedAt || null,
+      completedAt: session.compression.completedAt || null,
+    } : null,
+    backupPruned: session.backupPruned ? {
+      at: session.backupPruned.at,
+      size: session.backupPruned.size,
+      file: session.backupPruned.file ? path.basename(session.backupPruned.file) : null,
+      twitchSessionId: session.backupPruned.twitchSessionId || null,
     } : null,
     downloadUrl: relativeFinal ? `/files/${encodeURIComponent(relativeFinal)}` : null,
     partsCount: (session.parts || []).length,
@@ -296,7 +341,7 @@ export function createApiServer({ store, archiver, monitors }) {
           .map((s) => publicSession(s));
         return json(res, 200, {
           now: new Date().toISOString(),
-          app: config.appName,
+          app: APP_NAME,
           uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
           monitors: {
             twitch: store.getMonitor('twitch'),
@@ -324,10 +369,7 @@ export function createApiServer({ store, archiver, monitors }) {
       }
 
       if (req.method === 'GET' && url.pathname === '/api/settings') {
-        return json(res, 200, {
-          ...settingsFromConfig(),
-          activeSessions: store.activeSessions().length,
-        });
+        return json(res, 200, settingsPayload(store));
       }
 
       if (req.method === 'POST' && url.pathname === '/api/settings') {
@@ -335,8 +377,6 @@ export function createApiServer({ store, archiver, monitors }) {
           const body = await readJsonBody(req);
           const destination = resolveRequestedPath(body.destination?.dir || config.recordingsDir);
           const settings = {
-            appName: String(body.appName ?? config.appName).trim().slice(0, 80),
-            appMark: String(body.appMark ?? config.appMark).trim().slice(0, 4),
             filenameTemplate: String(body.filenameTemplate ?? config.filenameTemplate).trim().slice(0, 200),
             twitch: {
               enabled: body.twitch?.enabled !== false,
@@ -348,18 +388,34 @@ export function createApiServer({ store, archiver, monitors }) {
               label: String(body.youtube?.label ?? config.youtube.channelLabel).trim().slice(0, 80),
             },
             destination: { dir: destination },
+            storage: {
+              compressEnabled: body.storage?.compressEnabled !== undefined
+                ? Boolean(body.storage.compressEnabled)
+                : config.storage.compressEnabled,
+              compressQuality: ['high', 'balanced', 'small'].includes(body.storage?.compressQuality)
+                ? body.storage.compressQuality
+                : config.storage.compressQuality,
+              compressEncoder: ['auto', 'vaapi', 'x265', 'none'].includes(body.storage?.compressEncoder)
+                ? body.storage.compressEncoder
+                : config.storage.compressEncoder,
+              backupRetentionDays: Number.isFinite(Number.parseInt(body.storage?.backupRetentionDays, 10))
+                ? Math.max(0, Math.min(365, Number.parseInt(body.storage.backupRetentionDays, 10)))
+                : config.storage.backupRetentionDays,
+            },
           };
           await monitors.reconfigure(settings);
           await saveSettings(settings);
+          await refreshStorage(store).catch((error) => {
+            logger.warn(`Could not refresh the compression encoder: ${error.message}`);
+          });
           logger.info('Settings saved from dashboard', {
             twitch: settings.twitch.enabled ? settings.twitch.channel : 'disabled',
             youtube: settings.youtube.enabled ? settings.youtube.channel : 'disabled',
             destination,
+            compress: settings.storage.compressEnabled ? settings.storage.compressQuality : 'disabled',
+            backupRetentionDays: settings.storage.backupRetentionDays,
           });
-          return json(res, 200, {
-            ...settingsFromConfig(),
-            activeSessions: store.activeSessions().length,
-          });
+          return json(res, 200, settingsPayload(store));
         } catch (error) {
           return json(res, 400, { error: error.message });
         }
@@ -440,6 +496,43 @@ export function createApiServer({ store, archiver, monitors }) {
         if (!session) return json(res, 404, { error: 'session not found' });
         archiver.scheduleVodWatch(session);
         return json(res, 202, { ok: true });
+      }
+
+      const compressMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/compress$/);
+      if (req.method === 'POST' && compressMatch) {
+        const session = store.getSession(decodeURIComponent(compressMatch[1]));
+        if (!session) return json(res, 404, { error: 'session not found' });
+        if (session.status !== 'done' || !session.final?.file) {
+          return json(res, 400, { error: 'session has no finalized file yet' });
+        }
+        if (['hevc', 'av1'].includes(session.final?.quality?.videoCodec)) {
+          return json(res, 409, { error: `session is already ${session.final.quality.videoCodec}` });
+        }
+        const encoder = await detectEncoder(true);
+        if (!encoder.available) {
+          return json(res, 409, {
+            error: `no compatible HEVC encoder available: ${encoder.reason || encoder.kind}`,
+          });
+        }
+        const queued = enqueueCompression(session, { reason: 'manual', force: true });
+        if (!queued) return json(res, 409, { error: 'compression is already queued, running or done' });
+        return json(res, 202, { ok: true, compression: publicSession(session).compression });
+      }
+
+      if (req.method === 'GET' && url.pathname === '/api/storage') {
+        return json(res, 200, {
+          ...getStorageStatus(),
+          compressEnabled: config.storage.compressEnabled,
+          compressQuality: config.storage.compressQuality,
+          compressBackfillDays: config.storage.compressBackfillDays,
+          backupRetentionDays: config.storage.backupRetentionDays,
+        });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/api/storage/prune') {
+        const dryRun = ['1', 'true', 'yes'].includes((url.searchParams.get('dryRun') || '').toLowerCase());
+        const result = await pruneBackups(store, { dryRun });
+        return json(res, 200, { ok: true, ...result });
       }
 
       if (req.method === 'GET' && url.pathname === '/api/events') {

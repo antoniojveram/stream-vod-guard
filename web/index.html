@@ -13,9 +13,9 @@
   <div class="bg-grid" aria-hidden="true"></div>
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark" id="app-mark">SV</div>
+      <div class="brand-mark">SV</div>
       <div>
-        <h1 id="app-name">Stream VOD Guard</h1>
+        <h1>Stream VOD Guard</h1>
         <p id="app-subtitle">Watching channels live</p>
       </div>
     </div>
@@ -158,14 +158,32 @@
         <button class="btn sm" id="folder-create" type="button">Create folder</button>
       </div>
 
-      <h3 class="sub">Appearance</h3>
+      <h3 class="sub">Storage</h3>
       <div class="form-grid">
-        <label>Dashboard name
-          <input id="app-name-input" maxlength="80" />
+        <label class="check"><input type="checkbox" id="compress-enabled" /> Compress finished recordings to HEVC</label>
+        <label>Encoder
+          <select id="compress-encoder">
+            <option value="auto">Auto — GPU if available, else CPU</option>
+            <option value="vaapi">Intel/AMD iGPU (VAAPI)</option>
+            <option value="x265">CPU (x265, slow)</option>
+            <option value="none">None — keep H.264</option>
+          </select>
         </label>
-        <label>Mark
-          <input id="app-mark-input" maxlength="4" />
+        <label>Compression quality
+          <select id="compress-quality">
+            <option value="high">High — near-transparent</option>
+            <option value="balanced">Balanced — recommended</option>
+            <option value="small">Small — maximum savings</option>
+          </select>
         </label>
+        <label>Keep YouTube backup for (days)
+          <input id="backup-retention" type="number" min="0" max="365" step="1" />
+        </label>
+      </div>
+      <p class="settings-note" id="storage-note"></p>
+
+      <h3 class="sub">File names</h3>
+      <div class="form-grid">
         <label class="full">File name template
           <input id="filename-template" maxlength="200" />
         </label>

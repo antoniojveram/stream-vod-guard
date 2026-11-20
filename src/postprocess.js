@@ -684,7 +684,7 @@ export async function finalizeSession(session, { store, onUpdate } = {}) {
   };
 }
 
-export async function retryPendingArchives(store) {
+export async function retryPendingArchives(store, { onArchived } = {}) {
   for (const session of store.listSessions({ active: false, limit: 200 })) {
     if (session.status !== 'archived-pending' || !session.final?.localFile) continue;
     if (!(await pathExists(session.final.localFile))) continue;
@@ -705,6 +705,7 @@ export async function retryPendingArchives(store) {
       }
       store.putSession(session);
       logger.info(`[${session.id}] pending archive completed: ${archived.file}`);
+      onArchived?.(session);
     } catch (error) {
       logger.warn(`[${session.id}] pending archive still failing: ${truncate(errorMessage(error), 200)}`);
     }

@@ -2,13 +2,14 @@ SHELL := /bin/bash
 COMPOSE ?= docker compose
 SERVICE ?= stream-vod-guard
 
-.PHONY: help init up down restart logs status test test-e2e demo shell config update
+.PHONY: help init up up-vaapi down restart logs status test test-e2e demo shell config update
 
 help:
 	@echo "Stream VOD Guard"
 	@echo ""
 	@echo "  make init      Create .env and local folders from .env.example"
 	@echo "  make up        Build and start the stack"
+	@echo "  make up-vaapi  Same, with /dev/dri for HEVC hardware encoding"
 	@echo "  make down      Stop and remove the stack"
 	@echo "  make restart   Restart the stack"
 	@echo "  make logs      Follow container logs"
@@ -29,6 +30,10 @@ up: init
 	@test -f .env || cp .env.example .env
 	$(COMPOSE) up -d --build
 
+up-vaapi: init
+	@test -f .env || cp .env.example .env
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.vaapi.yml up -d --build
+
 down: init
 	$(COMPOSE) down
 
@@ -46,7 +51,7 @@ test: init
 	$(COMPOSE) run --rm --entrypoint node $(SERVICE) --test test/unit.test.js
 
 test-e2e: init
-	$(COMPOSE) run --rm -e E2E=1 --entrypoint node $(SERVICE) --test test/audit.test.js test/e2e.test.js test/integration.test.js
+	$(COMPOSE) run --rm -e E2E=1 --entrypoint node $(SERVICE) --test test/audit.test.js test/compression.test.js test/e2e.test.js test/integration.test.js
 
 demo: init
 	$(COMPOSE) run --rm $(SERVICE) bash scripts/demo-capture.sh

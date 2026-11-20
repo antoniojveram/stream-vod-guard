@@ -45,6 +45,9 @@ node --test test/unit.test.js
 # Audit logic (needs ffmpeg)
 E2E=1 node --test test/audit.test.js
 
+# HEVC compression + backup retention (needs ffmpeg)
+E2E=1 node --test test/compression.test.js
+
 # Synthetic HLS capture + SIGKILL + restart + finalize (needs ffmpeg/streamlink)
 E2E=1 node --test test/e2e.test.js
 

@@ -102,7 +102,32 @@ Twitch ad filtering can leave 1–3 minute gaps; the YouTube copy covers them. S
 | `WARN_FREE_ARCHIVE_GB` | `100` | Destination warning threshold |
 | `RETENTION_DAYS` | `0` | 0 = forever; N = delete finalized recordings older than N days |
 
-Size estimate: 1080p60 ≈ 3.5 GB/h. Recording both platforms ≈ 7 GB/h.
+Size estimate: 1080p60 ≈ 3.2 GB/h. Recording both platforms ≈ 5–6 GB/h.
+
+## Storage optimization
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `COMPRESS_ENABLED` | `false` | Re-encode finished MKVs to HEVC |
+| `COMPRESS_QUALITY` | `balanced` | `high` (QP 21), `balanced` (QP 24), `small` (QP 27) |
+| `COMPRESS_ENCODER` | `auto` | `auto`, `vaapi`, `x265` or `none` |
+| `COMPRESS_MIN_SAVINGS` | `10` | Keep the original if the saving is below this percentage |
+| `COMPRESS_BACKFILL_DAYS` | `0` | On startup, queue recordings from the last N days |
+| `BACKUP_RETENTION_DAYS` | `0` | Delete the YouTube backup after N days; 0 = keep forever |
+| `VAAPI_DEVICE` | `/dev/dri/renderD128` | Render node for Intel/AMD hardware encoding |
+| `RENDER_GID` | `992` | Host `render` group for `docker-compose.vaapi.yml` |
+
+Hardware encoding requires passing `/dev/dri` to the container:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
+```
+
+The app logs the detected encoder (`hevc_vaapi`, `libx265` or `none`) and
+validates it with a one-frame test encode. If no compatible encoder is
+available, compression is **skipped** and the original H.264 file is kept
+untouched. `auto` falls back to x265; `vaapi` strictly requires hardware. Full
+guide: [storage.md](storage.md).
 
 ## Mute audit
 

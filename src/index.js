@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { config, ensureDirs } from './config.js';
+import { APP_NAME, config, ensureDirs } from './config.js';
 import { logger } from './logger.js';
 import { Store } from './store.js';
 import { Archiver, Monitors } from './monitor.js';
 import { createApiServer } from './api.js';
 import { loadSettings, applySettingsToConfig } from './settings.js';
+import { initStorage } from './storage.js';
 import { humanBytes, run, truncate } from './util.js';
 import { resolveYouTubeChannelId } from './youtube.js';
 
@@ -85,7 +86,7 @@ async function main() {
   await checkWritable(config.workDir);
 
   const versions = await checkTools();
-  logger.info(`Starting ${config.appName}`, versions);
+  logger.info(`Starting ${APP_NAME}`, versions);
   logger.info('Recording destinations', {
     final: config.archiveDisplayPath,
     containerPath: config.recordingsDir,
@@ -102,6 +103,12 @@ async function main() {
   }
 
   const store = await new Store(config.stateFile).init();
+  let storage = null;
+  try {
+    storage = await initStorage(store);
+  } catch (error) {
+    logger.warn(`Storage optimizer could not start: ${error.message}`);
+  }
   const archiver = new Archiver(store);
   await resolveChannels();
   const monitors = new Monitors(archiver);
@@ -126,6 +133,7 @@ async function main() {
     try {
       await monitors.stop();
       await archiver.shutdown();
+      await storage?.stop();
       await new Promise((resolve) => {
         server.close(resolve);
         setTimeout(() => {
