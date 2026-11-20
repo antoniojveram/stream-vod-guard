@@ -9,5 +9,6 @@ node_modules/
 *.mkv
 *.ts
 *.mp4
+!assets/*.mp4
 .DS_Store
 coverage/
