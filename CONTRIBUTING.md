@@ -8,6 +8,45 @@ Thanks for improving Stream VOD Guard. This project is a small, dependency-light
 - For a large feature, open an issue first so we can agree on the design.
 - Never include real credentials, `.env` files, cookies, recordings or personal data in a PR.
 
+## Contribution flow
+
+There are two supported ways to contribute.
+
+### Invited collaborators (write access)
+
+If you have been added as a collaborator with the **Write** role, create a branch
+in this repository:
+
+```bash
+git clone https://github.com/antoniojveram/stream-vod-guard.git
+cd stream-vod-guard
+git checkout -b feat/my-feature
+# implement, test and commit
+git push origin feat/my-feature
+```
+
+Open a pull request against `main`. `main` is protected:
+
+- direct pushes are blocked;
+- CI (`Unit tests` and `Docker build + integration`) must pass;
+- the pull request needs approval from the code owner,
+  [@antoniojveram](https://github.com/antoniojveram).
+
+Only the code owner can approve and merge. Release tags (`v*`) can only be
+created by the owner.
+
+### External contributors (no write access)
+
+Fork the repository, create a branch in your fork and open a pull request. This
+is the safe path for drive-by contributions: write access also allows editing
+workflows and other branches, so it is reserved for trusted collaborators.
+
+### Why not branches for everyone?
+
+GitHub has no "create branches only" permission. A branch inside this repository
+requires the **Write** role. Forks keep untrusted code outside the repository
+while still allowing pull requests and CI.
+
 ## Development setup
 
 ```bash
@@ -47,14 +86,12 @@ docker compose run --rm -e E2E=1 --entrypoint node stream-vod-guard \
 
 ## Pull requests
 
-1. Fork the repository and create a branch:
-   ```bash
-   git checkout -b feat/my-feature
-   ```
-2. Keep the change focused and update docs/`CHANGELOG.md`.
+1. Use one of the flows above and keep the change focused.
+2. Update docs/`CHANGELOG.md` when needed.
 3. Add or update tests.
 4. Make sure CI is green.
 5. Describe **what**, **why** and how you tested it.
+6. Wait for the code owner's approval. Only the code owner merges.
 
 ## Commit messages
 
