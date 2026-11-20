@@ -10,6 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ee6a8.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 [![GHCR](https://img.shields.io/badge/ghcr.io-stream--vod--guard-8b5cf6?logo=github)](https://github.com/antoniojveram/stream-vod-guard/pkgs/container/stream-vod-guard)
+[![Release](https://img.shields.io/github/v/release/antoniojveram/stream-vod-guard?label=release)](https://github.com/antoniojveram/stream-vod-guard/releases)
 
 [English](README.md) · [Español](README.es.md) · [Docs](docs/) · [Case study](docs/case-study/gta-vi.md)
 
@@ -21,7 +22,13 @@ Stream VOD Guard records a creator's **live** Twitch and YouTube streams at the 
 
 It is not tied to any channel or game: pick any Twitch login and any YouTube channel, and choose the destination folder from the dashboard.
 
-![Stream VOD Guard dashboard](assets/screenshot-dashboard.png)
+## Demo
+
+[![Stream VOD Guard demo](assets/demo.gif)](assets/demo.mp4)
+
+A silent 30-second tour: dashboard, the details of a finished stream with the
+HEVC compression result, the Twitch mute audit and the storage/encoder settings.
+[Download the MP4](assets/demo.mp4) · [Demo en español](README.es.md#demo)
 
 ## Why record live?
 
@@ -41,8 +48,10 @@ Stream VOD Guard therefore captures **both live feeds in parallel**, so one plat
 - **Dual capture**: Twitch via `streamlink`, YouTube via `yt-dlp --live-from-start`.
 - **Crash resilient**: rolling parts, watchdog restarts, container-restart recovery.
 - **Storage-safe**: raw chunks on local disk, final MKV copied to your destination; retries if the destination is unavailable.
-- **Storage optimizer**: optional HEVC compression with the Intel/AMD iGPU and automatic pruning of the YouTube backup.
+- **Storage optimizer**: optional HEVC compression with the Intel/AMD iGPU, safe x265 CPU fallback, encoder selection and automatic pruning of the YouTube backup.
+- **Safe fallback**: if no compatible encoder is available, compression is skipped and the H.264 original is kept untouched.
 - **Mute audit**: compares its own file with Twitch's `muted_segments` and reports PASS/FAIL per segment.
+- **Multi-arch image**: `linux/amd64` and `linux/arm64`.
 - **Single container**: no database, no external services. FFmpeg, Streamlink and yt-dlp included.
 - **CLI**: one-off captures, live status, VOD mute inspection, file probing.
 - **Notifications**: ntfy, Telegram and Discord (optional).
@@ -53,7 +62,7 @@ Stream VOD Guard therefore captures **both live feeds in parallel**, so one plat
 Requirements:
 
 - Docker Engine 24+ and Docker Compose v2
-- ~2 GB RAM and enough disk for your recordings (~3.5 GB per hour at 1080p60, ~7 GB/h recording both platforms)
+- ~2 GB RAM and enough disk for your recordings (~3.2 GB per hour at 1080p60, ~5–6 GB/h recording both platforms; optional HEVC compression typically saves 30–60%)
 - Linux is recommended for bind mounts and permissions
 
 ```bash
@@ -99,18 +108,21 @@ docker pull ghcr.io/antoniojveram/stream-vod-guard:latest
 
 ## Web UI
 
-| Dashboard | Settings |
-| --- | --- |
-| ![Dashboard](assets/screenshot-dashboard.png) | ![Settings](assets/screenshot-settings.png) |
+| Dashboard | Recording details | Settings |
+| --- | --- | --- |
+| ![Dashboard](assets/screenshot-dashboard.png) | ![Details](assets/screenshot-detail.png) | ![Settings](assets/screenshot-settings.png) |
 
-The Settings dialog lets you:
+The dashboard is always **Stream VOD Guard**; the project identity is fixed and
+is not configurable. The Settings dialog lets you:
 
 - enable/disable Twitch and YouTube;
 - change channels (ID, handle or URL);
 - browse the mounted parent folder and create a destination;
+- choose the compression encoder (**Auto / VAAPI / x265 / None**), quality and
+  YouTube backup retention;
 - change the filename template.
 
-Changes apply **without restarting**. Channel changes finalize any active recording on that platform; destination changes only affect new recordings. Settings are persisted in `data/settings.json` and take precedence over `.env`.
+Changes apply **without restarting**. Channel changes finalize any active recording on that platform; destination changes only affect new recordings. Settings are persisted in `data/settings.json` and take precedence over `.env`. Finished recordings show `HEVC −NN%`, progress and savings directly in the history and detail dialog.
 
 ## CLI
 
@@ -148,12 +160,16 @@ flowchart LR
   W --> F[FFmpeg concat + probe]
   F --> A[Silence + mute audit]
   A --> N[(Destination folder)]
+  N --> C[Optional HEVC compression]
+  C --> R[Optional YouTube backup retention]
 ```
 
 - **Monitors** detect live state and create a session.
 - **Capture** writes one file per attempt; a stalled/failed process is killed and restarted.
 - **Finalize** normalizes parts, concatenates into MKV, probes streams, scans long silences and computes SHA-256.
 - **Archive** copies the final file to the session's destination; local copies are kept until the copy succeeds.
+- **Compress** (optional) re-encodes the finished MKV to HEVC with VAAPI or x265; the original is kept until the new file is probed, decoded and verified.
+- **Retain** (optional) deletes the YouTube backup after N days once a verified Twitch copy covers it.
 - **Audit** fetches Twitch's muted segments after the VOD is processed and samples the recording in each muted range.
 
 Detailed design: [docs/architecture.md](docs/architecture.md).
@@ -195,6 +211,10 @@ Muted:      -91 dB (in the Twitch VOD)
 
 The dashboard shows the per-segment table and stores it in `metadata.json`.
 
+A follow-up 9 h 29 min stream (2026-11-20) returned **27 muted segments
+(1 h 21 min)**; our live copy passed **27/27** and was then compressed to HEVC
+with a **30.1%** size reduction.
+
 ## Configuration
 
 Everything is configurable through `.env` and the dashboard. Main variables:
@@ -217,8 +237,12 @@ Everything is configurable through `.env` and the dashboard. Main variables:
 | `MIN_FREE_GB` / `MIN_FREE_ARCHIVE_GB` | `25` / `30` | Disk guards |
 | `CHECKSUM` / `KEEP_RAW` | `true` / `false` | SHA-256 / keep parts |
 | `COMPRESS_ENABLED` | `false` | Re-encode finished MKVs to HEVC |
+| `COMPRESS_ENCODER` | `auto` | `auto`, `vaapi`, `x265` or `none` |
 | `COMPRESS_QUALITY` | `balanced` | `high`, `balanced` or `small` |
+| `COMPRESS_BACKFILL_DAYS` | `0` | On startup, compress finished recordings from the last N days |
 | `BACKUP_RETENTION_DAYS` | `0` | Delete the YouTube backup after N days; 0 = keep |
+| `VAAPI_DEVICE` | `/dev/dri/renderD128` | Render node for Intel/AMD VAAPI |
+| `RENDER_GID` | `992` | Host `render` group for the VAAPI Compose override |
 | `VOD_AUDIT_ENABLED` | `true` | Twitch mute audit |
 | `RETENTION_DAYS` | `0` | 0 = keep forever |
 | `DASHBOARD_TOKEN` | empty | Protect the dashboard |
@@ -230,7 +254,7 @@ The defaults are set to capture the best rendition each platform offers:
 - Twitch: `TWITCH_QUALITY=best` (source quality, generally 1080p60).
 - YouTube: `YOUTUBE_MAX_HEIGHT=0` selects the best video + best audio available (up to 4K/60 if the stream provides it).
 
-The final MKV is a **remux** (`-c copy`); there is no re-encode. The dashboard detail shows the real resolution and FPS of the finished file. Set `YOUTUBE_MAX_HEIGHT=1080` (or `720`) only if you want to trade quality for disk space.
+The capture and the final MKV are **copy-only** (`-c copy`): no re-encode. Optional HEVC compression is a separate, lossy archive pass that runs after the stream; it preserves resolution and FPS but not the exact bits. The dashboard detail shows the real resolution and FPS of the finished file. Set `YOUTUBE_MAX_HEIGHT=1080` (or `720`) only if you want to trade quality for disk space.
 
 Full reference: [docs/configuration.md](docs/configuration.md) · [quality guarantees](docs/quality.md).
 
@@ -240,12 +264,25 @@ A 10-hour 1080p60 stream is about **32 GB**. Two optional mechanisms reduce the
 archive without lowering the live capture quality:
 
 - **HEVC compression** (`COMPRESS_ENABLED=true`): after the stream ends, the MKV
-  is re-encoded to HEVC with the Intel/AMD iGPU. Expect **40–60% smaller files**
-  at `balanced` quality and roughly **4–6 hours per 10-hour stream** on an Intel
-  N100. The original is kept until the new file is probed, decoded and verified.
+  is re-encoded to HEVC with the Intel/AMD iGPU. On a real 9 h 29 min 1080p60
+  stream, 32.75 GB became **22.89 GB (30.1% smaller)** at `balanced` quality in
+  about 3.5 hours on an Intel N100. Savings depend on motion; static or
+  low-motion content can reach 50–60% or more. The original is kept until the new
+  file is probed, decoded and verified.
 - **YouTube backup retention** (`BACKUP_RETENTION_DAYS=7`): deletes the YouTube
   copy after a verified Twitch recording covers at least 95% of it. The Twitch
   file is never deleted by this policy. `0` keeps both forever.
+
+| `COMPRESS_ENCODER` | Behaviour |
+| --- | --- |
+| `auto` | Tries VAAPI, then x265; skips compression if neither works |
+| `vaapi` | Requires Intel/AMD VAAPI; skips if unavailable |
+| `x265` | Forces CPU encoding; compatible but slow |
+| `none` | Disables compression |
+
+If no compatible encoder is available, compression is **skipped** and the H.264
+file is kept untouched — no recording is lost or marked as failed. The dashboard
+shows the detected encoder and lets you switch modes without editing `.env`.
 
 Enable the iGPU passthrough on a host with `/dev/dri`:
 
@@ -254,11 +291,6 @@ getent group render                 # usually 992
 # set RENDER_GID=992 in .env
 docker compose -f docker-compose.yml -f docker-compose.vaapi.yml up -d
 ```
-
-If no compatible GPU is available, `COMPRESS_ENCODER=auto` falls back to **x265
-on the CPU**. If neither VAAPI nor x265 works, compression is **skipped** and the
-H.264 file is kept untouched — no recording is lost. The dashboard lets you
-choose **Auto / VAAPI / CPU / None** and shows the detected encoder.
 
 The image is published for **linux/amd64 and linux/arm64**; the VAAPI override is
 optional. Full guide: [docs/storage.md](docs/storage.md).
@@ -279,7 +311,7 @@ The dashboard folder picker can share the same parent mount across instances.
 
 - **Keep the host awake** and Docker enabled at boot (`restart: unless-stopped`).
 - **Localhost only by default.** Put a reverse proxy with authentication in front if you expose it. `DASHBOARD_TOKEN` adds a simple bearer/query token.
-- **Disk sizing.** 1080p60 ≈ 3.2 GB/h per platform. Record both ≈ 5–6 GB/h. With HEVC compression the archive drops to ≈ 1.3–1.9 GB/h. The system warns and stops before filling local disk.
+- **Disk sizing.** 1080p60 ≈ 3.2 GB/h per platform. Record both ≈ 5–6 GB/h. With HEVC compression the archive typically drops by **30–60%** depending on motion (≈ 1.3–2.4 GB/h); static content saves more. The system warns and stops before filling local disk.
 - **Twitch ads.** `TWITCH_DISABLE_ADS=true` filters ad segments (leaving small gaps). The YouTube copy covers those gaps; both files are kept.
 - **YouTube members-only streams** need cookies: set `YT_COOKIES_FILE` to a Netscape-format cookies file.
 - **Keep yt-dlp current.** Rebuild the image periodically (`docker compose build --pull`); YouTube changes often.
@@ -294,6 +326,8 @@ The dashboard folder picker can share the same parent mount across instances.
 | Destination not writable | Check `VIDEOS_HOST_PATH` permissions and that the NAS is mounted. Files stay local and are retried. |
 | Twitch has gaps | Ad filtering. Use the YouTube copy or set `TWITCH_DISABLE_ADS=false`. |
 | Audit stays pending | Twitch has not scanned the VOD yet, or the VOD is sub-only/deleted. The recording is still valid. |
+| Compression says "no encoder" | Open **Settings → Storage**, choose **Auto** or **CPU (x265)**, or pass `/dev/dri` with `docker-compose.vaapi.yml`. The H.264 file is kept regardless. |
+| Compression is very slow | VAAPI is not active and x265 is using the CPU. Check **Settings → Storage** for the detected encoder and the [storage guide](docs/storage.md). |
 | Port already in use | Change `DASHBOARD_PORT`. |
 
 More: [docs/troubleshooting.md](docs/troubleshooting.md).
@@ -308,7 +342,7 @@ node --test test/unit.test.js
 docker compose build
 docker compose run --rm --entrypoint node stream-vod-guard --test test/unit.test.js
 docker compose run --rm -e E2E=1 --entrypoint node stream-vod-guard \
-  --test test/audit.test.js test/e2e.test.js test/integration.test.js
+  --test test/audit.test.js test/compression.test.js test/e2e.test.js test/integration.test.js
 ```
 
 Architecture and conventions: [docs/development.md](docs/development.md).
@@ -320,6 +354,12 @@ This tool records **public live streams for personal use**. Do not redistribute 
 ## Contributing
 
 Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+`main` is protected: direct pushes, force pushes and branch deletion are
+blocked, CI must pass and the code owner must approve every pull request.
+Trusted collaborators with **Write** access can create a branch in this
+repository and open a PR; external contributors can fork and open a PR without
+write access. Release tags (`v*`) can only be created by the repository owner.
 
 ## License
 

@@ -47,11 +47,13 @@ On the Intel N100 host used for development, with the iGPU VAAPI encoder:
 | 1280×720 @ 60 fps, synthetic motion | 6 s | high (QP 21) | 12.0 MB | 7.0 MB | **41.5%** | 3 s |
 | 1920×1080 @ 60 fps, static/animated UI | 30 s | high (QP 22) | 31 MB | 7 MB | **77%** | 16 s |
 | 1920×1080 @ 60 fps, static/animated UI | 30 s | balanced (QP 24) | 31 MB | 5 MB | **84%** | 16 s |
+| 1920×1080 @ 60 fps, real 9 h 29 min stream | 9 h 29 min | balanced (QP 24) | 32.75 GB | 22.89 GB | **30.1%** | 3 h 30 min |
 
 Static scenes compress much better than gameplay. For real 1080p60 gameplay,
-expect roughly **40–60% savings** at `high`/`balanced`. A 10-hour stream that
-was 32 GB typically lands around **13–19 GB**, and encoding takes about **4–6
-hours** on the N100 iGPU (faster than real time).
+expect **30–60% savings** depending on motion. A 10-hour stream that was 32 GB
+typically lands around **19–24 GB for high-motion content**, and **13–19 GB for
+static or low-motion content**. Hardware VAAPI encoding runs faster than real
+time: about **3.5–5 hours** for a 10-hour stream on the N100 iGPU.
 
 ### Hardware encoding (recommended)
 
@@ -115,7 +117,8 @@ the settings re-probes and can queue the recent recordings again.
 
 On a 4-core N100, x265 `preset fast` encodes 1080p60 at roughly **0.25× real
 time**: a 10-hour stream can take 30–40 hours. It still works, but keep the
-machine on and expect the queue to be busy. Hardware VAAPI is ~6× faster.
+machine on and expect the queue to be busy. Hardware VAAPI is about an order of
+magnitude faster on this host.
 
 ### HEVC compatibility
 

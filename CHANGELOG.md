@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Silent English and Spanish demo videos (MP4 + inline GIF) in the README.
+- `.github/CODEOWNERS` and a documented branch-based contribution flow.
+
+### Changed
+
+- README updated with the v1.1.0 storage optimizer, encoder selection and safe
+  fallback, the real-world compression result and the protected repository flow.
+
 ## [1.1.0] — 2026-11-19
 
 ### Added
