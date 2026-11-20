@@ -3,6 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_FILENAME_TEMPLATE, normalizeTwitchLogin } from './util.js';
 
+/** Fixed project identity. The dashboard is not rebrandable. */
+export const APP_NAME = 'Stream VOD Guard';
+
 function bool(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on', 'si', 'sí'].includes(String(value).toLowerCase());
@@ -45,8 +48,6 @@ const youtubeChannelInput = process.env.YOUTUBE_CHANNEL_ID || process.env.YOUTUB
 const youtubeLooksLikeId = /^UC[\w-]{22}$/.test(youtubeChannelInput.trim());
 
 export const config = {
-  appName: process.env.APP_NAME || 'Stream VOD Guard',
-  appMark: process.env.APP_MARK || 'SV',
   filenameTemplate: process.env.FILENAME_TEMPLATE || DEFAULT_FILENAME_TEMPLATE,
   dataDir,
   videosRoot,
@@ -196,8 +197,6 @@ export function ensureDirs() {
 
 export function publicConfig() {
   return {
-    appName: config.appName,
-    appMark: config.appMark,
     filenameTemplate: config.filenameTemplate,
     twitch: {
       enabled: config.twitch.enabled,

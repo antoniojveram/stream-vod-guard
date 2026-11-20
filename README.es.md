@@ -31,7 +31,7 @@ En el caso que originó el proyecto, el VOD de Twitch tenía **12 tramos × 180 
 ## Características
 
 - Cualquier canal: Twitch (`login`, `@login`, URL) y YouTube (`UC...`, `@handle`, URL).
-- Panel web para canales, carpeta de destino, nombre, marca y plantilla de archivo.
+- Panel web para canales, carpeta de destino y plantilla de archivo.
 - Explorador de carpetas con creación de subcarpetas.
 - Captura dual con `streamlink` y `yt-dlp --live-from-start`.
 - Watchdog, trozos independientes, recuperación tras reinicio del contenedor.
@@ -89,7 +89,7 @@ Desde **Settings** puedes:
 - activar/desactivar Twitch y YouTube;
 - cambiar los canales;
 - elegir la carpeta de destino y crear carpetas;
-- cambiar el nombre del panel, la marca y la plantilla del archivo.
+- cambiar la plantilla del archivo.
 
 Los cambios se aplican sin reiniciar. Si cambias de canal con una grabación activa, esa grabación se cierra y se finaliza; la carpeta nueva solo afecta a las nuevas. La configuración del panel se guarda en `data/settings.json` y tiene prioridad sobre `.env`.
 
@@ -142,7 +142,6 @@ data/
 
 | Variable | Por defecto | Qué hace |
 | --- | --- | --- |
-| `APP_NAME` / `APP_MARK` | `Stream VOD Guard` / `SV` | Identidad del panel |
 | `TWITCH_CHANNEL` | vacío | Login, `@login` o URL |
 | `YOUTUBE_CHANNEL` | vacío | ID, `@handle` o URL |
 | `VIDEOS_HOST_PATH` | `./videos` | Carpeta padre montada en `/videos` |

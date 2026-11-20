@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
-import { config, displayPathFor, publicConfig } from './config.js';
+import { APP_NAME, config, displayPathFor, publicConfig } from './config.js';
 import { logger } from './logger.js';
 import { saveSettings, settingsFromConfig, validateDestination } from './settings.js';
 import {
@@ -341,7 +341,7 @@ export function createApiServer({ store, archiver, monitors }) {
           .map((s) => publicSession(s));
         return json(res, 200, {
           now: new Date().toISOString(),
-          app: config.appName,
+          app: APP_NAME,
           uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
           monitors: {
             twitch: store.getMonitor('twitch'),
@@ -377,8 +377,6 @@ export function createApiServer({ store, archiver, monitors }) {
           const body = await readJsonBody(req);
           const destination = resolveRequestedPath(body.destination?.dir || config.recordingsDir);
           const settings = {
-            appName: String(body.appName ?? config.appName).trim().slice(0, 80),
-            appMark: String(body.appMark ?? config.appMark).trim().slice(0, 4),
             filenameTemplate: String(body.filenameTemplate ?? config.filenameTemplate).trim().slice(0, 200),
             twitch: {
               enabled: body.twitch?.enabled !== false,

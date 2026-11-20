@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { config, ensureDirs } from './config.js';
+import { APP_NAME, config, ensureDirs } from './config.js';
 import { logger } from './logger.js';
 import { Store } from './store.js';
 import { Archiver, Monitors } from './monitor.js';
@@ -86,7 +86,7 @@ async function main() {
   await checkWritable(config.workDir);
 
   const versions = await checkTools();
-  logger.info(`Starting ${config.appName}`, versions);
+  logger.info(`Starting ${APP_NAME}`, versions);
   logger.info('Recording destinations', {
     final: config.archiveDisplayPath,
     containerPath: config.recordingsDir,

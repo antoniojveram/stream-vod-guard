@@ -27,6 +27,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- The dashboard identity is fixed to **Stream VOD Guard**. `APP_NAME`,
+  `APP_MARK` and the name/mark fields were removed; only the filename template
+  remains configurable.
 - The Docker image now includes the Intel and Mesa VAAPI drivers.
 - Documentation for quality, storage, configuration and troubleshooting.
 

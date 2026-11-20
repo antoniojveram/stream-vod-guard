@@ -26,8 +26,6 @@ export function validateDestination(input) {
 
 export function settingsFromConfig() {
   return {
-    appName: config.appName,
-    appMark: config.appMark,
     filenameTemplate: config.filenameTemplate,
     twitch: {
       enabled: config.twitch.enabled,
@@ -62,12 +60,6 @@ export function settingsFromConfig() {
  */
 export function applySettingsToConfig(settings) {
   if (!settings || typeof settings !== 'object') return false;
-  if (typeof settings.appName === 'string' && settings.appName.trim()) {
-    config.appName = settings.appName.trim().slice(0, 80);
-  }
-  if (typeof settings.appMark === 'string' && settings.appMark.trim()) {
-    config.appMark = settings.appMark.trim().slice(0, 4);
-  }
   if (typeof settings.filenameTemplate === 'string' && settings.filenameTemplate.trim()) {
     config.filenameTemplate = settings.filenameTemplate.trim().slice(0, 200);
   }

@@ -50,8 +50,6 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
 
 ```json
 {
-  "appName": "Stream VOD Guard",
-  "appMark": "SV",
   "filenameTemplate": "{channel} - {date} - {title} [{platform}-{id}]",
   "twitch": { "enabled": true, "channel": "example", "resolved": "example" },
   "youtube": { "enabled": true, "channel": "@example", "label": "Example", "resolved": "UC..." },
@@ -76,8 +74,6 @@ Returns monitors, disk, stats, active sessions, recent sessions, events, public 
 
 ```json
 {
-  "appName": "My Guard",
-  "appMark": "MG",
   "filenameTemplate": "{date} - {channel} - {title}",
   "twitch": { "enabled": true, "channel": "example" },
   "youtube": { "enabled": false, "channel": "" },

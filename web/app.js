@@ -176,10 +176,7 @@ function downloadHref(url) {
 function renderBrand() {
   const cfg = state.status?.config;
   if (!cfg) return;
-  const appName = cfg.appName || 'Stream VOD Guard';
-  document.title = appName;
-  $('app-name').textContent = appName;
-  $('app-mark').textContent = (cfg.appMark || 'SV').slice(0, 3);
+  // The project name is fixed; only the channel subtitle is dynamic.
   const parts = [];
   if (cfg.twitch?.enabled) {
     parts.push(`${state.status.monitors.twitch?.displayName || cfg.twitch.login} on Twitch`);
@@ -559,8 +556,6 @@ async function openSettings() {
     $('yt-enabled').checked = Boolean(settings.youtube?.enabled);
     $('yt-channel').value = settings.youtube?.channel || '';
     $('yt-label').value = settings.youtube?.label || '';
-    $('app-name-input').value = settings.appName || '';
-    $('app-mark-input').value = settings.appMark || '';
     $('filename-template').value = settings.filenameTemplate || '';
     $('compress-enabled').checked = Boolean(settings.storage?.compressEnabled);
     $('compress-encoder').value = settings.storage?.compressEncoder || 'auto';
@@ -609,8 +604,6 @@ async function saveSettings() {
   $('settings-error').textContent = '';
   try {
     const body = {
-      appName: $('app-name-input').value.trim(),
-      appMark: $('app-mark-input').value.trim(),
       filenameTemplate: $('filename-template').value.trim(),
       twitch: {
         enabled: $('tw-enabled').checked,

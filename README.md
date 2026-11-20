@@ -36,7 +36,7 @@ Stream VOD Guard therefore captures **both live feeds in parallel**, so one plat
 ## Features
 
 - **Any channel**: Twitch login, `@login` or URL; YouTube channel ID, `@handle` or URL.
-- **Web UI**: edit channels, destination folder, app name, mark and filename template without editing files.
+- **Web UI**: edit channels, destination folder and filename template without editing files.
 - **Folder picker**: browse a mounted parent folder, create subfolders, change destination on the fly.
 - **Dual capture**: Twitch via `streamlink`, YouTube via `yt-dlp --live-from-start`.
 - **Crash resilient**: rolling parts, watchdog restarts, container-restart recovery.
@@ -108,7 +108,7 @@ The Settings dialog lets you:
 - enable/disable Twitch and YouTube;
 - change channels (ID, handle or URL);
 - browse the mounted parent folder and create a destination;
-- rename the dashboard, change its mark and the filename template.
+- change the filename template.
 
 Changes apply **without restarting**. Channel changes finalize any active recording on that platform; destination changes only affect new recordings. Settings are persisted in `data/settings.json` and take precedence over `.env`.
 
@@ -201,7 +201,6 @@ Everything is configurable through `.env` and the dashboard. Main variables:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `APP_NAME` / `APP_MARK` | `Stream VOD Guard` / `SV` | Dashboard identity |
 | `TWITCH_CHANNEL` | empty | Login, `@login` or URL |
 | `YOUTUBE_CHANNEL` | empty | ID, `@handle` or URL |
 | `YOUTUBE_CHANNEL_LABEL` | resolved | Display name |
