@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim
+FROM node:25-bookworm-slim
 
 ARG APP_VERSION=dev
 LABEL org.opencontainers.image.title="Stream VOD Guard" \
